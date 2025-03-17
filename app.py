@@ -7,7 +7,7 @@ import re
 app = Flask(__name__)
 
 # Set your OpenAI API Key
-openai_client = openai.OpenAI(api_key="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")
+openai_client = openai.OpenAI(api_key="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")
 
 # Extract only code from the response
 def extract_code(response_text):
