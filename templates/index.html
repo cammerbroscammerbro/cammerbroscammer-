@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Code Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+            background: #2E2E2E;
+            color: white;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 100px auto;
+            padding: 50px;
+            border-radius: 16px;
+            box-shadow: 8px 8px 40px rgba(0, 0, 0, 0.9);
+            background: #1E1E1E;
+        }
+        h1 {
+            font-size: 36px;
+            margin-bottom: 20px;
+        }
+        textarea, select, button {
+            width: 100%;
+            margin-top: 20px;
+            padding: 18px;
+            background: #3E3E3E;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 12px;
+            font-size: 20px;
+        }
+        #output {
+            white-space: pre-wrap;
+            text-align: left;
+            background: #3E3E3E;
+            padding: 25px;
+            border-radius: 12px;
+            margin-top: 25px;
+            border: 1px solid #555;
+            font-size: 18px;
+            position: relative;
+        }
+        .copy-btn, button {
+            margin-top: 15px;
+            padding: 12px;
+            background: #41a4e1;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        .copy-btn:hover, button:hover {
+            background: #3591c9;
+        }
+        #downloadLink {
+            display: none;
+            margin-top: 25px;
+            color: #41a4e1;
+            text-decoration: none;
+            font-size: 22px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Generate Your App Code</h1>
+        <textarea id="prompt" rows="6" placeholder="Describe your app..."></textarea>
+        <select id="platform">
+            <option value="apk">APK</option>
+            <option value="exe">EXE</option>
+            <option value="web">Web</option>
+        </select>
+        <select id="app_type">
+            <option value="frontend">Frontend</option>
+            <option value="backend">Backend</option>
+            <option value="fullstack">Fullstack</option>
+        </select>
+        <button onclick="generateCode()">Generate Code</button>
+        <div id="output"></div>
+        <button class="copy-btn" onclick="copyCode()">Copy Code</button>
+        <a id="downloadLink" download>Download Code</a>
+    </div>
+
+    <script>
+        function generateCode() {
+            let prompt = document.getElementById('prompt').value;
+            let platform = document.getElementById('platform').value;
+            let appType = document.getElementById('app_type').value;
+            
+            fetch('/generate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ prompt, platform, app_type: appType })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    document.getElementById('output').innerText = "Error: " + data.error;
+                } else {
+                    document.getElementById('output').innerText = data.frontend_code || data.backend_code;
+                    if (data.download_link) {
+                        let link = document.getElementById('downloadLink');
+                        link.href = data.download_link;
+                        link.innerText = "Download Code";
+                        link.style.display = "block";
+                    }
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        function copyCode() {
+            let output = document.getElementById('output').innerText;
+            if (!output) return;
+            
+            let textarea = document.createElement('textarea');
+            textarea.value = output;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            
+            alert('Code copied to clipboard!');
+        }
+    </script>
+</body>
+</html>
