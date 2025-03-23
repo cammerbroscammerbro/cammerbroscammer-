@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Generate frontend, backend, and fullstack code for APK, EXE, and Web apps instantly.">
+    <meta name="keywords" content="App Code Generator, APK, EXE, Web, Frontend, Backend, Fullstack">
+    <meta name="author" content="Trixzon">
     <title>App Code Generator</title>
+    <link rel="icon" type="image/png" href="logo.png">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -69,6 +73,20 @@
             font-size: 22px;
             font-weight: bold;
         }
+        .loader {
+            display: none;
+            margin: 20px auto;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -85,17 +103,31 @@
             <option value="backend">Backend</option>
             <option value="fullstack">Fullstack</option>
         </select>
-        <button onclick="generateCode()">Generate Code</button>
+        <button id="generateBtn" onclick="generateCode()">Generate Code</button>
+        <div class="loader" id="loader"></div>
         <div id="output"></div>
         <button class="copy-btn" onclick="copyCode()">Copy Code</button>
         <a id="downloadLink" download>Download Code</a>
     </div>
-
     <script>
         function generateCode() {
             let prompt = document.getElementById('prompt').value;
             let platform = document.getElementById('platform').value;
             let appType = document.getElementById('app_type').value;
+            let generateBtn = document.getElementById('generateBtn');
+            let loader = document.getElementById('loader');
+            let output = document.getElementById('output');
+            let downloadLink = document.getElementById('downloadLink');
+            
+            if (!prompt) {
+                alert("Please enter a description for your app.");
+                return;
+            }
+            
+            generateBtn.disabled = true;
+            loader.style.display = 'block';
+            output.innerText = '';
+            downloadLink.style.display = 'none';
             
             fetch('/generate', {
                 method: 'POST',
@@ -104,34 +136,39 @@
             })
             .then(response => response.json())
             .then(data => {
+                loader.style.display = 'none';
+                generateBtn.disabled = false;
+                
                 if (data.error) {
-                    document.getElementById('output').innerText = "Error: " + data.error;
+                    output.innerText = "Error: " + data.error;
                 } else {
-                    document.getElementById('output').innerText = data.frontend_code || data.backend_code;
+                    output.innerText = data.frontend_code || data.backend_code || "Code generated successfully.";
                     if (data.download_link) {
-                        let link = document.getElementById('downloadLink');
-                        link.href = data.download_link;
-                        link.innerText = "Download Code";
-                        link.style.display = "block";
+                        downloadLink.href = data.download_link;
+                        downloadLink.innerText = "Download Code";
+                        downloadLink.style.display = "block";
                     }
                 }
             })
-            .catch(error => console.error('Error:', error));
+            .catch(error => {
+                console.error('Error:', error);
+                loader.style.display = 'none';
+                generateBtn.disabled = false;
+                output.innerText = "An error occurred while generating the code.";
+            });
         }
 
         function copyCode() {
             let output = document.getElementById('output').innerText;
             if (!output) return;
             
-            let textarea = document.createElement('textarea');
-            textarea.value = output;
-            document.body.appendChild(textarea);
-            textarea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textarea);
-            
-            alert('Code copied to clipboard!');
+            navigator.clipboard.writeText(output).then(() => {
+                alert('Code copied to clipboard!');
+            }).catch(err => {
+                console.error('Error copying text: ', err);
+            });
         }
     </script>
 </body>
 </html>
+
