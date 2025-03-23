@@ -1,3 +1,4 @@
+
 from flask import Flask, request, jsonify, render_template
 import openai
 import os
@@ -6,8 +7,10 @@ import re
 
 app = Flask(__name__)
 
-# Set your OpenAI API Key
-openai_client = openai.OpenAI(api_key="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")
+# ✅ Set API key directly (Make sure it's correct)
+OPENAI_API_KEY = "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"
+
+openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
 # Extract only code from the response
 def extract_code(response_text):
