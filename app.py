@@ -8,7 +8,7 @@ import re
 app = Flask(__name__)
 
 # ✅ Set API key directly (Make sure it's correct)
-OPENAI_API_KEY = "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"
+OPENAI_API_KEY = "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"
 openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
 # Extract only code from the response
