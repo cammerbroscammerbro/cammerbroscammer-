@@ -1,14 +1,22 @@
-
 from flask import Flask, request, jsonify, render_template
 import openai
 import os
 import zipfile
 import re
+from dotenv import load_dotenv
+
+# Load environment variables from the .env file
+load_dotenv()
 
 app = Flask(__name__)
 
-# ✅ Set API key directly (Make sure it's correct)
-OPENAI_API_KEY = "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"
+# ✅ Load API key from environment variables
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+# Ensure the API key is available
+if not OPENAI_API_KEY:
+    raise ValueError("API Key is missing. Please set it in the .env file.")
+
 openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
 # Extract only code from the response
@@ -84,3 +92,4 @@ def generate_app():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
