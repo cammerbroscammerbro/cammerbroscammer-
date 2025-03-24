@@ -3,20 +3,18 @@ import openai
 import os
 import zipfile
 import re
-from dotenv import load_dotenv
 
-# Load environment variables from the .env file
-load_dotenv()
-
+# Initialize the Flask app
 app = Flask(__name__)
 
-# ✅ Load API key from environment variables
+# ✅ Load the API key from the environment variable set on Render
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Ensure the API key is available
 if not OPENAI_API_KEY:
-    raise ValueError("API Key is missing. Please set it in the .env file.")
+    raise ValueError("API Key is missing. Please set it in Render's environment variables.")
 
+# Initialize OpenAI client
 openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
 # Extract only code from the response
@@ -30,7 +28,7 @@ def generate_code(prompt, platform, app_type):
     """Uses OpenAI to generate structured code based on user input."""
     response = openai_client.chat.completions.create(
         model="gpt-4-turbo",
-        messages=[
+        messages=[ 
             {"role": "system", "content": f"You are an expert {platform} {app_type} developer. Generate clean and error-free code without explanations."},
             {"role": "user", "content": prompt} 
         ]
@@ -91,5 +89,6 @@ def generate_app():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Use the default host and port for Render deployment
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=True)
 
