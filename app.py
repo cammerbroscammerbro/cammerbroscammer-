@@ -68,7 +68,7 @@ def logo():
 
 @app.route('/')
 def home():
-    return render_template('main.html')
+    return render_template('index.html')
 
 def sanitize_response(response_text):
     """
