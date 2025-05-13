@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fronti</title>
+  <link rel="icon" href="{{ url_for('favicon') }}" type="image/png" sizes="32x32">
+  <link rel="icon" href="{{ url_for('favicon_png') }}" type="image/png" sizes="32x32">
+  <link rel="shortcut icon" href="{{ url_for('favicon') }}" type="image/png">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0c0c0c;
+      color: white;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.8rem 1.5rem;
+      background-color: #0c0c0c;
+    }
+    .logo-title {
+      display: flex;
+      align-items: center;
+    }
+    header img {
+      width: 40px;
+      height: 40px;
+      margin-right: 1rem;
+    }
+    header h1 {
+      font-size: 1.8rem;
+      background: linear-gradient(to right, #00ffff, #a855f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    main {
+      display: flex;
+      flex-direction: row-reverse;
+      padding: 1rem;
+      gap: 1rem;
+      height: calc(100vh - 90px); /* Make main fill viewport minus header */
+      min-height: 0;
+    }
+    .panel-preview {
+      flex: 2;
+      background-color: #121212;
+      border-radius: 20px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 500px;
+      position: relative;
+      overflow: hidden;
+      min-width: 0;
+    }
+    .panel-preview iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      overflow: auto;
+    }
+    #codeDisplay {
+      display: none;
+      flex-direction: row;
+      height: 600px; /* Fixed height for code panel */
+      min-height: 400px;
+      max-height: 80vh;
+      background: #121212;
+      border-radius: 20px;
+      overflow: hidden;
+      /* Remove any effect from preview panel */
+      position: relative;
+    }
+    #fileNav {
+      width: 20%;
+      background-color: #1f1f1f;
+      padding: 1rem;
+      overflow-y: auto;
+      border-right: 1px solid #333;
+      height: 100%;
+      box-sizing: border-box;
+    }
+    #codeEditor {
+      flex: 1;
+      padding: 1rem;
+      overflow-y: auto;
+      overflow-x: auto;
+      background-color: #121212;
+      border-radius: 12px;
+      height: 100%;
+      box-sizing: border-box;
+      max-width: 100%;
+      min-width: 0;
+    }
+    #codeEditor pre {
+      white-space: pre;
+      word-break: break-all;
+      overflow-x: auto;
+      overflow-y: auto;
+      margin: 0;
+      max-width: 100%;
+      min-width: 0;
+    }
+    /* Prevent code panel from resizing the main layout */
+    .panel-code {
+      flex: none;
+      width: 70vw;
+      min-width: 350px;
+      max-width: 100vw;
+      box-sizing: border-box;
+      /* Remove any preview panel effect */
+      background: #121212;
+      border-radius: 20px;
+      overflow: hidden;
+      position: relative;
+      z-index: 1;
+      min-height: 0;
+    }
+    .panel-input {
+      flex: 1;
+      background-color: #121212;
+      border-radius: 20px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      min-width: 260px;
+      max-width: 350px;
+      height: 100%;
+      min-height: 0;
+      box-sizing: border-box;
+    }
+    #chatArea {
+      flex: 1 1 auto;
+      min-height: 0;
+      max-height: none;
+      overflow-y: auto;
+      margin-bottom: 0.5rem;
+      background: none;
+      border-radius: 0;
+      padding: 0;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+    }
+    .input-box {
+      display: flex;
+      margin-top: auto;
+      border-top: 1px solid #333;
+      padding-top: 1rem;
+    }
+    .input-box input {
+      flex: 1;
+      padding: 0.6rem;
+      border: none;
+      border-radius: 10px;
+      background-color: #1f1f1f;
+      color: white;
+    }
+    .input-box button {
+      margin-left: 1rem;
+      padding: 0.6rem 1rem;
+      background-color: #1f1f1f;
+      color: white;
+      border: 1px solid #444;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .input-box button.clicked {
+      background: linear-gradient(to right, #00ffff, #a855f7);
+      color: white;
+    }
+    .preview-message {
+      margin: auto;
+      text-align: center;
+      opacity: 0.5;
+      z-index: 1;
+      position: relative;
+    }
+    .app-type-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .app-type-buttons button {
+      padding: 0.5rem 1.2rem;
+      border: none;
+      border-radius: 12px;
+      background: #1f1f1f;
+      color: white;
+      border: 1px solid #333;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .app-type-buttons button.selected {
+      background: linear-gradient(to right, #00ffff, #a855f7);
+      color: white;
+      transform: scale(1.05);
+    }
+    .toggle-buttons {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+    .toggle-group {
+      display: flex;
+      gap: 0.6rem;
+    }
+    .toggle-buttons button {
+      padding: 0.6rem 1.5rem;
+      border: none;
+      border-radius: 14px;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .toggle-buttons button:hover {
+      transform: scale(1.07);
+    }
+    .toggle-buttons button:active {
+      transform: scale(0.97);
+    }
+    .active-btn {
+      background: linear-gradient(to right, #00ffff, #a855f7);
+      color: white;
+    }
+    .inactive-btn {
+      background-color: #1c1c1c;
+      color: white;
+      border: 1px solid #333;
+    }
+    .export-btn {
+      padding: 0.6rem 1rem;
+      border-radius: 12px;
+      background: #1f1f1f;
+      border: 1px solid #444;
+      color: white;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-left: 1.5rem;
+    }
+    .export-btn:hover {
+      background: #2a2a2a;
+    }
+    .deploy-btn {
+      padding: 0.6rem 1rem;
+      border-radius: 12px;
+      background: linear-gradient(to right, #00ffff, #a855f7);
+      color: white;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-left: 1.5rem;
+    }
+    .deploy-btn:hover {
+      transform: scale(1.05);
+    }
+    .fullscreen-icon {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-top: 1rem;
+      cursor: pointer;
+    }
+    .fullscreen-icon img {
+      width: 30px;
+      height: 30px;
+      filter: invert(100%);
+      transition: transform 0.3s ease;
+    }
+    .fullscreen-icon img:hover {
+      transform: scale(1.2);
+    }
+    /* Floating background elements */
+    #bgElements {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .bg-icon {
+      position: absolute;
+      opacity: 0.08;
+      animation: float 15s infinite linear;
+      color: #00ffff;
+      z-index: 0;
+    }
+    @keyframes float {
+      0% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-50px) rotate(180deg); }
+      100% { transform: translateY(0) rotate(360deg); }
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-html.min.js"></script>
+  <script>
+  let selectedAppType = 'web app';
+  let generatedFiles = {};
+  let activeFile = null;
+  let isFullScreen = false;
+
+  async function showPreview() {
+    document.getElementById('codeDisplay').style.display = 'none';
+    let previewPanel = document.getElementById('previewPanel');
+    let previewArea;
+    if (!previewPanel) {
+      // Create preview panel dynamically if missing
+      previewPanel = document.createElement('div');
+      previewPanel.className = 'panel-preview';
+      previewPanel.id = 'previewPanel';
+      previewPanel.style.position = 'relative';
+      previewArea = document.createElement('div');
+      previewArea.className = 'preview-message';
+      previewArea.id = 'previewArea';
+      previewArea.style.width = '100%';
+      previewArea.style.height = '100%';
+      previewArea.style.position = 'relative';
+      previewArea.style.zIndex = '2';
+      previewPanel.appendChild(previewArea);
+      // Insert before code panel
+      const main = document.querySelector('main');
+      main.insertBefore(previewPanel, document.getElementById('codeDisplay'));
+    } else {
+      previewPanel.style.display = '';
+      previewArea = document.getElementById('previewArea');
+    }
+    previewPanel.style.display = '';
+    previewArea.style.display = 'block';
+    previewArea.innerHTML = '<div style="padding:1rem;color:#888;">Loading preview...</div>';
+
+    try {
+      const response = await fetch('/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: selectedAppType, files: generatedFiles })
+      });
+
+      if (!response.ok) {
+        previewArea.innerHTML = `
+          <div style="color:#ff6b6b;text-align:center;padding:2rem;">
+            <b>Preview failed to load.</b><br>
+            Server returned error status: ${response.status}
+          </div>
+        `;
+        return;
+      }
+
+      const data = await response.json();
+      if (!data.files || typeof data.files !== 'object') {
+        previewArea.innerHTML = `
+          <div style="color:#ff6b6b;text-align:center;padding:2rem;">
+            <b>Preview failed to load.</b><br>
+            No files received from backend.
+          </div>
+        `;
+        return;
+      }
+      // Remove any previous iframes
+      Array.from(previewPanel.querySelectorAll('iframe')).forEach(f => f.remove());
+      previewArea.innerHTML = '';
+
+      const iframe = document.createElement('iframe');
+      iframe.style.width = '100%';
+      iframe.style.height = '100%';
+      iframe.style.border = 'none';
+      iframe.style.background = '#fff';
+      iframe.style.position = 'absolute';
+      iframe.style.top = '0';
+      iframe.style.left = '0';
+      iframe.style.zIndex = '1';
+      iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+
+      // Inline CSS and JS for web app preview
+      if (selectedAppType === 'web app') {
+        let htmlFile = Object.keys(data.files).find(f =>
+          f.toLowerCase() === 'index.html' || f.endsWith('.html')
+        );
+        if (htmlFile) {
+          let html = data.files[htmlFile];
+          // Inline CSS
+          html = html.replace(/<link\s+rel=["']stylesheet["']\s+href=["']([^"']+)["']\s*\/?>/gi, (match, href) => {
+            let cssContent = data.files[href] || data.files[href.replace(/^\.\//, '')];
+            if (!cssContent && !href.endsWith('.css')) {
+              cssContent = data.files[href + '.css'] || data.files[href.replace(/^\.\//, '') + '.css'];
+            }
+            if (cssContent) {
+              return `<style>${cssContent}</style>`;
+            }
+            return '';
+          });
+          // Inline JS
+          html = html.replace(/<script\s+src=["']([^"']+)["']\s*(?:>\s*<\/script>)?/gi, (match, src) => {
+            let jsContent = data.files[src] || data.files[src.replace(/^\.\//, '')];
+            if (!jsContent && !src.endsWith('.js')) {
+              jsContent = data.files[src + '.js'] || data.files[src.replace(/^\.\//, '') + '.js'];
+            }
+            if (jsContent) {
+              return `<script>${jsContent}<\/script>`;
+            }
+            return '';
+          });
+          iframe.srcdoc = html;
+        } else {
+          previewArea.innerHTML = `
+            <div style="color:#ff6b6b;text-align:center;padding:2rem;">
+              <b>No HTML file found in generated files.</b><br>
+              The generated project doesn't contain an HTML file to preview.
+            </div>
+          `;
+          return;
+        }
+      } else {
+        if (data.files && data.files['preview.html']) {
+          iframe.srcdoc = data.files['preview.html'];
+        } else {
+          previewArea.innerHTML = `
+            <div style="color:#ff6b6b;text-align:center;padding:2rem;">
+              <b>Preview could not be generated.</b><br>
+              The backend failed to create a preview for this app type.
+            </div>
+          `;
+          return;
+        }
+      }
+
+      previewPanel.appendChild(iframe);
+
+    } catch (error) {
+      previewArea.innerHTML = `
+        <div style="color:#ff6b6b;text-align:center;padding:2rem;">
+          <b>Preview failed to load.</b><br>
+          Error: ${error.message}
+        </div>
+      `;
+    }
+  }
+
+  function showCode() {
+    const previewPanel = document.getElementById('previewPanel');
+    if (previewPanel) previewPanel.style.display = 'none';
+    document.getElementById('codeDisplay').style.display = 'flex';
+    document.querySelectorAll('.toggle-group button')[1].classList.add('active-btn');
+    document.querySelectorAll('.toggle-group button')[1].classList.remove('inactive-btn');
+    document.querySelectorAll('.toggle-group button')[0].classList.remove('active-btn');
+    document.querySelectorAll('.toggle-group button')[0].classList.add('inactive-btn');
+    // Only show fileNav and codeEditor, remove any preview iframe from code panel if present
+    const codePreviewIframeId = 'codePanelPreviewIframe';
+    let codePanelIframe = document.getElementById(codePreviewIframeId);
+    if (codePanelIframe) codePanelIframe.remove();
+    // Restore fileNav sidebar
+    const fileNav = document.getElementById('fileNav');
+    fileNav.innerHTML = '';
+    for (const filename of Object.keys(generatedFiles)) {
+      const fileButton = document.createElement('button');
+      fileButton.textContent = filename;
+      fileButton.classList.add('file-button');
+      if (filename === activeFile) fileButton.classList.add('active-file');
+      fileButton.onclick = () => loadFileContent(filename);
+      fileNav.appendChild(fileButton);
+    }
+    let filename = activeFile;
+    if (!filename && Object.keys(generatedFiles).length > 0) {
+      filename = Object.keys(generatedFiles)[0];
+      activeFile = filename;
+    }
+    if (filename) {
+      loadFileContent(filename);
+    }
+  }
+
+  function loadFileContent(filename) {
+    activeFile = filename;
+    const codeEditor = document.getElementById('codeEditor');
+    const language = getLanguageFromFilename(filename);
+    const content = generatedFiles[filename] || '';
+    codeEditor.innerHTML = `
+      <pre class="language-${language}"><code class="language-${language}">${Prism.highlight(content, Prism.languages[language], language)}</code></pre>
+    `;
+  }
+
+  function getLanguageFromFilename(filename) {
+    if (filename.endsWith('.html')) return 'html';
+    if (filename.endsWith('.css')) return 'css';
+    if (filename.endsWith('.js')) return 'javascript';
+    if (filename.endsWith('.py')) return 'python';
+    if (filename.endsWith('.json')) return 'json';
+    return 'plaintext';
+  }
+
+  function toggleFullScreen() {
+    const codeDisplay = document.getElementById('codeDisplay');
+    const mainContent = document.querySelector('main');
+    const header = document.querySelector('header');
+    if (!isFullScreen) {
+      codeDisplay.style.position = 'fixed';
+      codeDisplay.style.top = '0';
+      codeDisplay.style.left = '0';
+      codeDisplay.style.width = '100vw';
+      codeDisplay.style.height = '100vh';
+      codeDisplay.style.zIndex = '1000';
+      codeDisplay.style.backgroundColor = '#121212';
+      mainContent.style.display = 'none';
+      header.style.display = 'none';
+      isFullScreen = true;
+    } else {
+      codeDisplay.style.position = 'relative';
+      codeDisplay.style.width = 'auto';
+      codeDisplay.style.height = 'auto';
+      codeDisplay.style.zIndex = 'auto';
+      mainContent.style.display = 'flex';
+      header.style.display = 'flex';
+      isFullScreen = false;
+    }
+  }
+
+  async function sendPrompt() {
+    const inputBox = document.getElementById('inputBox');
+    const prompt = inputBox.value.trim();
+    if (!prompt) {
+      alert('Please enter a prompt.');
+      return;
+    }
+
+    const sendBtn = document.getElementById('sendBtn');
+    sendBtn.textContent = '⏳';
+    sendBtn.disabled = true;
+
+    try {
+      // Show user prompt in chat area (below input)
+      appendMessage('user', prompt);
+
+      const response = await fetch('/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, type: selectedAppType })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        alert('Failed to generate code: ' + (errorData.error || 'Unknown error.'));
+        return;
+      }
+
+      const data = await response.json();
+      if (!data.files || Object.keys(data.files).length === 0) {
+        alert('No files were generated. Please try again.');
+        return;
+      }
+
+      // Show README/explanation in chat area (below input)
+      appendMessage('assistant', (typeof data.explanation === 'string' && data.explanation.trim())
+        ? data.explanation
+        : 'No README.md was generated.');
+
+      generatedFiles = data.files;
+      activeFile = Object.keys(generatedFiles)[0];
+      showPreview();
+
+    } catch (error) {
+      alert('Failed to fetch code from the backend.');
+    } finally {
+      sendBtn.textContent = '➤';
+      sendBtn.disabled = false;
+      inputBox.value = '';
+    }
+  }
+
+  function appendMessage(role, content) {
+    // Show chat messages just above the input box (in panel-input)
+    let chatArea = document.getElementById('chatArea');
+    if (!chatArea) {
+      chatArea = document.createElement('div');
+      chatArea.id = 'chatArea';
+      // Remove boxy background and padding for a flat look
+      chatArea.style.marginBottom = '0.5rem';
+      chatArea.style.maxHeight = '180px';
+      chatArea.style.overflowY = 'auto';
+      chatArea.style.background = 'none';
+      chatArea.style.borderRadius = 0;
+      chatArea.style.padding = 0;
+      chatArea.style.color = '#fff';
+      const panelInput = document.querySelector('.panel-input');
+      panelInput.insertBefore(chatArea, panelInput.firstChild);
+    }
+    const messageDiv = document.createElement('div');
+    messageDiv.classList.add('chat-message', role);
+    // Remove extra boxy styles
+    messageDiv.style.margin = '0.25rem 0';
+    messageDiv.style.whiteSpace = 'pre-wrap';
+    messageDiv.style.background = 'none';
+    messageDiv.style.padding = '0';
+    messageDiv.style.borderRadius = '0';
+    messageDiv.style.boxShadow = 'none';
+    messageDiv.textContent = content;
+    chatArea.appendChild(messageDiv);
+    chatArea.scrollTop = chatArea.scrollHeight;
+  }
+
+  async function downloadZip() {
+    try {
+      if (Object.keys(generatedFiles).length === 0) {
+        alert('No files to export. Please generate files first.');
+        return;
+      }
+      const response = await fetch('/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(generatedFiles)
+      });
+      if (!response.ok) {
+        alert('Failed to export files.');
+        return;
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'project.zip';
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      alert('Failed to export files.');
+    }
+  }
+
+  async function deploy() {
+    const deployButton = document.getElementById('deployButton');
+    deployButton.textContent = 'Deploying...';
+    deployButton.disabled = true;
+    try {
+      if (Object.keys(generatedFiles).length === 0) {
+        alert('No files to deploy. Please generate files first.');
+        return;
+      }
+      const response = await fetch('/deploy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: generatedFiles })
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        alert('Error: ' + (errorData.error || 'Failed to deploy.'));
+        return;
+      }
+      const data = await response.json();
+      if (data.url) {
+        alert(`Deployed successfully! View your app at: ${data.url}`);
+        window.open(data.url, '_blank');
+      } else {
+        alert('Deployment successful, but no URL was returned.');
+      }
+    } catch (error) {
+      alert('Failed to deploy files.');
+    } finally {
+      deployButton.textContent = 'Deploy';
+      deployButton.disabled = false;
+    }
+  }
+
+  function highlightButton(button) {
+    document.querySelectorAll('.app-type-buttons button').forEach(btn => btn.classList.remove('selected'));
+    button.classList.add('selected');
+    selectedAppType = button.innerText.trim().toLowerCase();
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.app-type-buttons button').forEach(btn => {
+      btn.addEventListener('click', function() {
+        highlightButton(this);
+        const deployBtn = document.getElementById('deployButton');
+        if (this.innerText.trim().toLowerCase() === 'web app') {
+          deployBtn.style.display = '';
+        } else {
+          deployBtn.style.display = 'none';
+        }
+      });
+    });
+    const appTypeButtons = document.querySelectorAll('.app-type-buttons button');
+    let foundSelected = false;
+    appTypeButtons.forEach(btn => {
+      if (btn.innerText.trim().toLowerCase() === selectedAppType) {
+        btn.classList.add('selected');
+        foundSelected = true;
+      } else {
+        btn.classList.remove('selected');
+      }
+    });
+    if (!foundSelected && appTypeButtons.length > 0) {
+      appTypeButtons[0].classList.add('selected');
+      selectedAppType = appTypeButtons[0].innerText.trim().toLowerCase();
+    }
+    const deployBtn = document.getElementById('deployButton');
+    if (selectedAppType === 'web app') {
+      deployBtn.style.display = '';
+    } else {
+      deployBtn.style.display = 'none';
+    }
+
+    const sendBtn = document.getElementById('sendBtn');
+    if (sendBtn) {
+      sendBtn.disabled = false;
+      sendBtn.style.pointerEvents = 'auto';
+      sendBtn.style.opacity = '1';
+      sendBtn.onclick = null;
+      sendBtn.addEventListener('click', sendPrompt);
+    }
+
+    const inputBox = document.getElementById('inputBox');
+    if (inputBox) {
+      inputBox.onkeypress = null;
+      inputBox.addEventListener('keypress', function (event) {
+        if (event.key === 'Enter') {
+          sendPrompt();
+        }
+      });
+    }
+
+    document.querySelectorAll('.toggle-group button')[0].addEventListener('click', showPreview);
+    document.querySelectorAll('.toggle-group button')[1].addEventListener('click', showCode);
+    document.querySelector('.fullscreen-icon').addEventListener('click', toggleFullScreen);
+    document.querySelector('.export-btn').addEventListener('click', downloadZip);
+    document.getElementById('deployButton').addEventListener('click', deploy);
+  });
+
+  // Floating background elements
+  (function() {
+    const bgElements = document.getElementById('bgElements');
+    if (bgElements) {
+      const icons = [
+        'fa-mobile-alt', 'fa-window-maximize', 'fa-file-code', 'fa-cube',
+        'fa-server', 'fa-database', 'fa-code', 'fa-android', 'fa-apple',
+        'fa-windows', 'fa-rocket', 'fa-bolt', 'fa-magic'
+      ];
+      for (let i = 0; i < 18; i++) {
+        const icon = document.createElement('i');
+        icon.className = `bg-icon fas ${icons[Math.floor(Math.random() * icons.length)]}`;
+        icon.style.left = `${Math.random() * 100}%`;
+        icon.style.top = `${Math.random() * 100}%`;
+        icon.style.fontSize = `${1 + Math.random() * 3}rem`;
+        icon.style.opacity = `${0.05 + Math.random() * 0.1}`;
+        icon.style.animationDuration = `${10 + Math.random() * 20}s`;
+        icon.style.animationDelay = `${Math.random() * 5}s`;
+        bgElements.appendChild(icon);
+      }
+    }
+  })();
+  </script>
+</head>
+<body>
+  <!-- Floating background elements -->
+  <div id="bgElements"></div>
+  <header>
+    <div class="logo-title">
+      <img src="logo.png" alt="Fronti Logo">
+      <div>
+        <h1>Fronti</h1>
+        <p style="font-size: 0.9rem; color: #888; margin-top: 0.2rem;">Build your dreams with Fronti.</p>
+      </div>
+    </div>
+    <div class="toggle-buttons">
+      <div class="toggle-group">
+        <button class="active-btn" onclick="showPreview()">Preview</button>
+        <button class="inactive-btn" onclick="showCode()">Code</button>
+      </div>
+      <button class="export-btn" onclick="downloadZip()">Export</button>
+      <button class="deploy-btn" id="deployButton">Deploy</button>
+    </div>
+  </header>
+  <main>
+    <div class="panel-preview" id="previewPanel" style="position:relative;">
+      <div class="preview-message" id="previewArea" style="width:100%;height:100%;position:relative;z-index:2;">
+        <p>Here we show preview...</p>
+      </div>
+    </div>
+    <div class="panel-code" id="codeDisplay" style="display: none; flex-direction: row;">
+      <div id="fileNav" style="width: 20%; background-color: #1f1f1f; padding: 1rem; overflow-y: auto; border-right: 1px solid #333;">
+      </div>
+      <div id="codeEditor" style="flex: 1; padding: 1rem; overflow-y: auto; background-color: #121212; border-radius: 12px;">
+      </div>
+      <div class="fullscreen-icon" onclick="toggleFullScreen()">
+        <img src="fullscreen-icon.png" alt="Toggle Full Screen">
+      </div>
+    </div>
+    <div class="panel-input">
+      <div id="chatArea" style="flex: 1 1 auto; min-height: 0; max-height: none; overflow-y: auto; margin-bottom: 0.5rem; background: none; border-radius: 0; padding: 0; color: #fff; display: flex; flex-direction: column;"></div>
+      <div class="input-box">
+        <input type="text" placeholder="Describe your app vision..." id="inputBox">
+        <button id="sendBtn" type="button" style="pointer-events:auto;cursor:pointer;">➤</button>
+      </div>
+      <div class="app-type-buttons">
+        <button type="button">Web App</button>
+        <button type="button">Mobile App</button>
+        <button type="button">Desktop App</button>
+      </div>
+    </div>
+  </main>
+</body>
+</html>
+
