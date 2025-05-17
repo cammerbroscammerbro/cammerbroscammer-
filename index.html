@@ -4,8 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fronti</title>
-  <link rel="icon" href="logo.png" type="image/png" sizes="32x32">
-  <link rel="shortcut icon" href="logo.png" type="image/png">
+  <link rel="icon" href="{{ url_for('favicon') }}" type="image/png" sizes="32x32">
+  <link rel="icon" href="{{ url_for('favicon_png') }}" type="image/png" sizes="32x32">
+  <link rel="shortcut icon" href="{{ url_for('favicon') }}" type="image/png">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
   <style>
     body {
@@ -311,500 +312,462 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-html.min.js"></script>
-  <!-- Firebase App (the core Firebase SDK) -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js"></script>
   <script>
-// --- Remove all Firebase and auth logic, make this page standalone ---
-let selectedAppType = 'web app';
-let generatedFiles = {};
-let activeFile = null;
-let isFullScreen = false;
+  let selectedAppType = 'web app';
+  let generatedFiles = {};
+  let activeFile = null;
+  let isFullScreen = false;
 
-function appendMessage(role, content) {
-  // Show chat messages just above the input box (in panel-input)
-  let chatArea = document.getElementById('chatArea');
-  if (!chatArea) {
-    chatArea = document.createElement('div');
-    chatArea.id = 'chatArea';
-    chatArea.style.marginBottom = '0.5rem';
-    chatArea.style.maxHeight = '180px';
-    chatArea.style.overflowY = 'auto';
-    chatArea.style.background = 'none';
-    chatArea.style.borderRadius = 0;
-    chatArea.style.padding = 0;
-    chatArea.style.color = '#fff';
-    const panelInput = document.querySelector('.panel-input');
-    panelInput.insertBefore(chatArea, panelInput.firstChild);
-  }
-  const messageDiv = document.createElement('div');
-  messageDiv.classList.add('chat-message', role);
-  messageDiv.style.margin = '0.25rem 0';
-  messageDiv.style.whiteSpace = 'pre-wrap';
-  messageDiv.style.background = 'none';
-  messageDiv.style.padding = '0';
-  messageDiv.style.borderRadius = '0';
-  messageDiv.style.boxShadow = 'none';
-  messageDiv.textContent = content;
-  chatArea.appendChild(messageDiv);
-  chatArea.scrollTop = chatArea.scrollHeight;
-}
-
-async function sendPrompt() {
-  const inputBox = document.getElementById('inputBox');
-  const prompt = inputBox.value.trim();
-  if (!prompt) {
-    alert('Please enter a prompt.');
-    return;
-  }
-  const sendBtn = document.getElementById('sendBtn');
-  sendBtn.textContent = '⏳';
-  sendBtn.disabled = true;
-  try {
-    appendMessage('user', prompt);
-    const response = await fetch('/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, type: selectedAppType })
-    });
-    if (!response.ok) {
-      const errorData = await response.json();
-      alert('Failed to generate code: ' + (errorData.error || 'Unknown error.'));
-      return;
-    }
-    const data = await response.json();
-    if (!data.files || Object.keys(data.files).length === 0) {
-      alert('No files were generated. Please try again.');
-      return;
-    }
-    appendMessage('assistant', (typeof data.explanation === 'string' && data.explanation.trim())
-      ? data.explanation
-      : 'No README.md was generated.');
-    generatedFiles = data.files;
-    activeFile = Object.keys(generatedFiles)[0];
-    showPreview();
-    // --- Save chat to Firebase 'chat' node ---
-    if (typeof db !== 'undefined' && db && firebaseReady) {
-      try {
-        db.ref('chat').push({
-          feature: prompt,
-          like: (typeof data.explanation === 'string' && data.explanation.trim()) ? data.explanation : '',
-          pay: selectedAppType,
-          solve: JSON.stringify(Object.keys(generatedFiles)),
-          timestamp: Date.now(),
-          userAgent: navigator.userAgent
-        });
-      } catch (e) {
-        // Fail silently
-      }
-    }
-    // --- Auto-open feedback popup after first successful code output ---
-    if (!sessionStorage.getItem('feedbackPopupShown')) {
-      sessionStorage.setItem('feedbackPopupShown', '1');
-      if (typeof renderStep === 'function') {
-        currentStep = 0;
-        answers = Array(questions.length).fill('');
-        renderStep();
-        document.getElementById('feedbackPopup').style.display = 'block';
-      } else {
-        // fallback: click feedbackBtn if available
-        var feedbackBtn = document.getElementById('feedbackBtn');
-        if (feedbackBtn) feedbackBtn.click();
-      }
-    }
-  } catch (error) {
-    alert('Failed to fetch code from the backend.');
-  } finally {
-    sendBtn.textContent = '➤';
-    sendBtn.disabled = false;
-    inputBox.value = '';
-  }
-}
-
-async function showPreview() {
-  document.getElementById('codeDisplay').style.display = 'none';
-  let previewPanel = document.getElementById('previewPanel');
-  let previewArea;
-  if (!previewPanel) {
-    previewPanel = document.createElement('div');
-    previewPanel.className = 'panel-preview';
-    previewPanel.id = 'previewPanel';
-    previewPanel.style.position = 'relative';
-    previewArea = document.createElement('div');
-    previewArea.className = 'preview-message';
-    previewArea.id = 'previewArea';
-    previewArea.style.width = '100%';
-    previewArea.style.height = '100%';
-    previewArea.style.position = 'relative';
-    previewArea.style.zIndex = '2';
-    previewPanel.appendChild(previewArea);
-    const main = document.querySelector('main');
-    main.insertBefore(previewPanel, document.getElementById('codeDisplay'));
-  } else {
-    previewPanel.style.display = '';
-    previewArea = document.getElementById('previewArea');
-  }
-  previewPanel.style.display = '';
-  previewArea.style.display = 'block';
-  previewArea.innerHTML = '<div style="padding:1rem;color:#888;">Loading preview...</div>';
-  try {
-    const response = await fetch('/preview', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: selectedAppType, files: generatedFiles })
-    });
-    if (!response.ok) {
-      previewArea.innerHTML = `
-        <div style="color:#ff6b6b;text-align:center;padding:2rem;">
-          <b>Preview failed to load.</b><br>
-          Server returned error status: ${response.status}
-        </div>
-      `;
-      return;
-    }
-    const data = await response.json();
-    if (!data.files || typeof data.files !== 'object') {
-      previewArea.innerHTML = `
-        <div style="color:#ff6b6b;text-align:center;padding:2rem;">
-          <b>Preview failed to load.</b><br>
-          No files received from backend.
-        </div>
-      `;
-      return;
-    }
-    Array.from(previewPanel.querySelectorAll('iframe')).forEach(f => f.remove());
-    previewArea.innerHTML = '';
-
-    const iframe = document.createElement('iframe');
-    iframe.style.width = '100%';
-    iframe.style.height = '100%';
-    iframe.style.border = 'none';
-    iframe.style.background = '#fff';
-    iframe.style.position = 'absolute';
-    iframe.style.top = '0';
-    iframe.style.left = '0';
-    iframe.style.zIndex = '1';
-    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
-
-    let previewHtml = '';
-    if (selectedAppType === 'web app') {
-      let htmlFile = Object.keys(data.files).find(f =>
-        f.toLowerCase() === 'index.html' || f.endsWith('.html')
-      );
-      if (htmlFile) {
-        let html = data.files[htmlFile];
-        html = html.replace(/<link\s+rel=["']stylesheet["']\s+href=["']([^"']+)["']\s*\/?>(?!<\/style>)/gi, (match, href) => {
-          let cssContent = data.files[href] || data.files[href.replace(/^\.\//, '')];
-          if (!cssContent && !href.endsWith('.css')) {
-            cssContent = data.files[href + '.css'] || data.files[href.replace(/^\.\//, '') + '.css'];
-          }
-          if (cssContent) {
-            return `<style>${cssContent}</style>`;
-          }
-          return '';
-        });
-        html = html.replace(/<script\s+src=["']([^"']+)["']\s*(?:>\s*<\/script>)?/gi, (match, src) => {
-          let jsContent = data.files[src] || data.files[src.replace(/^\.\//, '')];
-          if (!jsContent && !src.endsWith('.js')) {
-            jsContent = data.files[src + '.js'] || data.files[src.replace(/^\.\//, '') + '.js'];
-          }
-          if (jsContent) {
-            return `<script>${jsContent}<\/script>`;
-          }
-          return '';
-        });
-        iframe.srcdoc = html;
-        previewHtml = html;
-      } else {
-        previewArea.innerHTML = `
-          <div style="color:#ff6b6b;text-align:center;padding:2rem;">
-            <b>No HTML file found in generated files.</b><br>
-            The generated project doesn't contain an HTML file to preview.
-          </div>
-        `;
-        return;
-      }
+  async function showPreview() {
+    document.getElementById('codeDisplay').style.display = 'none';
+    let previewPanel = document.getElementById('previewPanel');
+    let previewArea;
+    if (!previewPanel) {
+      // Create preview panel dynamically if missing
+      previewPanel = document.createElement('div');
+      previewPanel.className = 'panel-preview';
+      previewPanel.id = 'previewPanel';
+      previewPanel.style.position = 'relative';
+      previewArea = document.createElement('div');
+      previewArea.className = 'preview-message';
+      previewArea.id = 'previewArea';
+      previewArea.style.width = '100%';
+      previewArea.style.height = '100%';
+      previewArea.style.position = 'relative';
+      previewArea.style.zIndex = '2';
+      previewPanel.appendChild(previewArea);
+      // Insert before code panel
+      const main = document.querySelector('main');
+      main.insertBefore(previewPanel, document.getElementById('codeDisplay'));
     } else {
-      if (data.files && data.files['preview.html']) {
-        iframe.srcdoc = data.files['preview.html'];
-        previewHtml = data.files['preview.html'];
-      } else {
+      previewPanel.style.display = '';
+      previewArea = document.getElementById('previewArea');
+    }
+    previewPanel.style.display = '';
+    previewArea.style.display = 'block';
+    previewArea.innerHTML = '<div style="padding:1rem;color:#888;">Loading preview...</div>';
+
+    try {
+      const response = await fetch('/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: selectedAppType, files: generatedFiles })
+      });
+
+      if (!response.ok) {
         previewArea.innerHTML = `
           <div style="color:#ff6b6b;text-align:center;padding:2rem;">
-            <b>Preview could not be generated.</b><br>
-            The backend failed to create a preview for this app type.
+            <b>Preview failed to load.</b><br>
+            Server returned error status: ${response.status}
           </div>
         `;
         return;
       }
-    }
 
-    previewPanel.appendChild(iframe);
-  } catch (error) {
-    previewArea.innerHTML = `
-      <div style="color:#ff6b6b;text-align:center;padding:2rem;">
-        <b>Preview failed to load.</b><br>
-        Error: ${error.message}
-      </div>
+      const data = await response.json();
+      if (!data.files || typeof data.files !== 'object') {
+        previewArea.innerHTML = `
+          <div style="color:#ff6b6b;text-align:center;padding:2rem;">
+            <b>Preview failed to load.</b><br>
+            No files received from backend.
+          </div>
+        `;
+        return;
+      }
+      // Remove any previous iframes
+      Array.from(previewPanel.querySelectorAll('iframe')).forEach(f => f.remove());
+      previewArea.innerHTML = '';
+
+      const iframe = document.createElement('iframe');
+      iframe.style.width = '100%';
+      iframe.style.height = '100%';
+      iframe.style.border = 'none';
+      iframe.style.background = '#fff';
+      iframe.style.position = 'absolute';
+      iframe.style.top = '0';
+      iframe.style.left = '0';
+      iframe.style.zIndex = '1';
+      iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+
+      // Inline CSS and JS for web app preview
+      if (selectedAppType === 'web app') {
+        let htmlFile = Object.keys(data.files).find(f =>
+          f.toLowerCase() === 'index.html' || f.endsWith('.html')
+        );
+        if (htmlFile) {
+          let html = data.files[htmlFile];
+          // Inline CSS
+          html = html.replace(/<link\s+rel=["']stylesheet["']\s+href=["']([^"']+)["']\s*\/?>/gi, (match, href) => {
+            let cssContent = data.files[href] || data.files[href.replace(/^\.\//, '')];
+            if (!cssContent && !href.endsWith('.css')) {
+              cssContent = data.files[href + '.css'] || data.files[href.replace(/^\.\//, '') + '.css'];
+            }
+            if (cssContent) {
+              return `<style>${cssContent}</style>`;
+            }
+            return '';
+          });
+          // Inline JS
+          html = html.replace(/<script\s+src=["']([^"']+)["']\s*(?:>\s*<\/script>)?/gi, (match, src) => {
+            let jsContent = data.files[src] || data.files[src.replace(/^\.\//, '')];
+            if (!jsContent && !src.endsWith('.js')) {
+              jsContent = data.files[src + '.js'] || data.files[src.replace(/^\.\//, '') + '.js'];
+            }
+            if (jsContent) {
+              return `<script>${jsContent}<\/script>`;
+            }
+            return '';
+          });
+          iframe.srcdoc = html;
+        } else {
+          previewArea.innerHTML = `
+            <div style="color:#ff6b6b;text-align:center;padding:2rem;">
+              <b>No HTML file found in generated files.</b><br>
+              The generated project doesn't contain an HTML file to preview.
+            </div>
+          `;
+          return;
+        }
+      } else {
+        if (data.files && data.files['preview.html']) {
+          iframe.srcdoc = data.files['preview.html'];
+        } else {
+          previewArea.innerHTML = `
+            <div style="color:#ff6b6b;text-align:center;padding:2rem;">
+              <b>Preview could not be generated.</b><br>
+              The backend failed to create a preview for this app type.
+            </div>
+          `;
+          return;
+        }
+      }
+
+      previewPanel.appendChild(iframe);
+
+    } catch (error) {
+      previewArea.innerHTML = `
+        <div style="color:#ff6b6b;text-align:center;padding:2rem;">
+          <b>Preview failed to load.</b><br>
+          Error: ${error.message}
+        </div>
+      `;
+    }
+  }
+
+  function showCode() {
+    const previewPanel = document.getElementById('previewPanel');
+    if (previewPanel) previewPanel.style.display = 'none';
+    document.getElementById('codeDisplay').style.display = 'flex';
+    document.querySelectorAll('.toggle-group button')[1].classList.add('active-btn');
+    document.querySelectorAll('.toggle-group button')[1].classList.remove('inactive-btn');
+    document.querySelectorAll('.toggle-group button')[0].classList.remove('active-btn');
+    document.querySelectorAll('.toggle-group button')[0].classList.add('inactive-btn');
+    // Only show fileNav and codeEditor, remove any preview iframe from code panel if present
+    const codePreviewIframeId = 'codePanelPreviewIframe';
+    let codePanelIframe = document.getElementById(codePreviewIframeId);
+    if (codePanelIframe) codePanelIframe.remove();
+    // Restore fileNav sidebar
+    const fileNav = document.getElementById('fileNav');
+    fileNav.innerHTML = '';
+    for (const filename of Object.keys(generatedFiles)) {
+      const fileButton = document.createElement('button');
+      fileButton.textContent = filename;
+      fileButton.classList.add('file-button');
+      if (filename === activeFile) fileButton.classList.add('active-file');
+      fileButton.onclick = () => loadFileContent(filename);
+      fileNav.appendChild(fileButton);
+    }
+    let filename = activeFile;
+    if (!filename && Object.keys(generatedFiles).length > 0) {
+      filename = Object.keys(generatedFiles)[0];
+      activeFile = filename;
+    }
+    if (filename) {
+      loadFileContent(filename);
+    }
+  }
+
+  function loadFileContent(filename) {
+    activeFile = filename;
+    const codeEditor = document.getElementById('codeEditor');
+    const language = getLanguageFromFilename(filename);
+    const content = generatedFiles[filename] || '';
+    codeEditor.innerHTML = `
+      <pre class="language-${language}"><code class="language-${language}">${Prism.highlight(content, Prism.languages[language], language)}</code></pre>
     `;
   }
-}
 
-function showCode() {
-  const previewPanel = document.getElementById('previewPanel');
-  if (previewPanel) previewPanel.style.display = 'none';
-  document.getElementById('codeDisplay').style.display = 'flex';
-  document.querySelectorAll('.toggle-group button')[1].classList.add('active-btn');
-  document.querySelectorAll('.toggle-group button')[1].classList.remove('inactive-btn');
-  document.querySelectorAll('.toggle-group button')[0].classList.remove('active-btn');
-  document.querySelectorAll('.toggle-group button')[0].classList.add('inactive-btn');
-  // Only show fileNav and codeEditor, remove any preview iframe from code panel if present
-  const codePreviewIframeId = 'codePanelPreviewIframe';
-  let codePanelIframe = document.getElementById(codePreviewIframeId);
-  if (codePanelIframe) codePanelIframe.remove();
-  // Restore fileNav sidebar
-  const fileNav = document.getElementById('fileNav');
-  fileNav.innerHTML = '';
-  for (const filename of Object.keys(generatedFiles)) {
-    const fileButton = document.createElement('button');
-    fileButton.textContent = filename;
-    fileButton.classList.add('file-button');
-    if (filename === activeFile) fileButton.classList.add('active-file');
-    fileButton.onclick = () => loadFileContent(filename);
-    fileNav.appendChild(fileButton);
+  function getLanguageFromFilename(filename) {
+    if (filename.endsWith('.html')) return 'html';
+    if (filename.endsWith('.css')) return 'css';
+    if (filename.endsWith('.js')) return 'javascript';
+    if (filename.endsWith('.py')) return 'python';
+    if (filename.endsWith('.json')) return 'json';
+    return 'plaintext';
   }
-  let filename = activeFile;
-  if (!filename && Object.keys(generatedFiles).length > 0) {
-    filename = Object.keys(generatedFiles)[0];
-    activeFile = filename;
+
+  function toggleFullScreen() {
+    const codeDisplay = document.getElementById('codeDisplay');
+    const mainContent = document.querySelector('main');
+    const header = document.querySelector('header');
+    if (!isFullScreen) {
+      codeDisplay.style.position = 'fixed';
+      codeDisplay.style.top = '0';
+      codeDisplay.style.left = '0';
+      codeDisplay.style.width = '100vw';
+      codeDisplay.style.height = '100vh';
+      codeDisplay.style.zIndex = '1000';
+      codeDisplay.style.backgroundColor = '#121212';
+      mainContent.style.display = 'none';
+      header.style.display = 'none';
+      isFullScreen = true;
+    } else {
+      codeDisplay.style.position = 'relative';
+      codeDisplay.style.width = 'auto';
+      codeDisplay.style.height = 'auto';
+      codeDisplay.style.zIndex = 'auto';
+      mainContent.style.display = 'flex';
+      header.style.display = 'flex';
+      isFullScreen = false;
+    }
   }
-  if (filename) {
-    loadFileContent(filename);
-  }
-}
 
-function loadFileContent(filename) {
-  activeFile = filename;
-  const codeEditor = document.getElementById('codeEditor');
-  const language = getLanguageFromFilename(filename);
-  const content = generatedFiles[filename] || '';
-  codeEditor.innerHTML = `
-    <pre class="language-${language}"><code class="language-${language}">${Prism.highlight(content, Prism.languages[language], language)}</code></pre>
-  `;
-}
-
-function getLanguageFromFilename(filename) {
-  if (filename.endsWith('.html')) return 'html';
-  if (filename.endsWith('.css')) return 'css';
-  if (filename.endsWith('.js')) return 'javascript';
-  if (filename.endsWith('.py')) return 'python';
-  if (filename.endsWith('.json')) return 'json';
-  return 'plaintext';
-}
-
-function toggleFullScreen() {
-  const codeDisplay = document.getElementById('codeDisplay');
-  const mainContent = document.querySelector('main');
-  const header = document.querySelector('header');
-  if (!isFullScreen) {
-    codeDisplay.style.position = 'fixed';
-    codeDisplay.style.top = '0';
-    codeDisplay.style.left = '0';
-    codeDisplay.style.width = '100vw';
-    codeDisplay.style.height = '100vh';
-    codeDisplay.style.zIndex = '1000';
-    codeDisplay.style.backgroundColor = '#121212';
-    mainContent.style.display = 'none';
-    header.style.display = 'none';
-    isFullScreen = true;
-  } else {
-    codeDisplay.style.position = 'relative';
-    codeDisplay.style.width = 'auto';
-    codeDisplay.style.height = 'auto';
-    codeDisplay.style.zIndex = 'auto';
-    mainContent.style.display = 'flex';
-    header.style.display = 'flex';
-    isFullScreen = false;
-  }
-}
-
-async function downloadZip() {
-  try {
-    if (Object.keys(generatedFiles).length === 0) {
-      alert('No files to export. Please generate files first.');
+  async function sendPrompt() {
+    const inputBox = document.getElementById('inputBox');
+    const prompt = inputBox.value.trim();
+    if (!prompt) {
+      alert('Please enter a prompt.');
       return;
     }
-    const response = await fetch('/export', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(generatedFiles)
-    });
-    if (!response.ok) {
+
+    const sendBtn = document.getElementById('sendBtn');
+    sendBtn.textContent = '⏳';
+    sendBtn.disabled = true;
+
+    try {
+      // Show user prompt in chat area (below input)
+      appendMessage('user', prompt);
+
+      const response = await fetch('/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, type: selectedAppType })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        alert('Failed to generate code: ' + (errorData.error || 'Unknown error.'));
+        return;
+      }
+
+      const data = await response.json();
+      if (!data.files || Object.keys(data.files).length === 0) {
+        alert('No files were generated. Please try again.');
+        return;
+      }
+
+      // Show README/explanation in chat area (below input)
+      appendMessage('assistant', (typeof data.explanation === 'string' && data.explanation.trim())
+        ? data.explanation
+        : 'No README.md was generated.');
+
+      generatedFiles = data.files;
+      activeFile = Object.keys(generatedFiles)[0];
+      showPreview();
+
+    } catch (error) {
+      alert('Failed to fetch code from the backend.');
+    } finally {
+      sendBtn.textContent = '➤';
+      sendBtn.disabled = false;
+      inputBox.value = '';
+    }
+  }
+
+  function appendMessage(role, content) {
+    // Show chat messages just above the input box (in panel-input)
+    let chatArea = document.getElementById('chatArea');
+    if (!chatArea) {
+      chatArea = document.createElement('div');
+      chatArea.id = 'chatArea';
+      // Remove boxy background and padding for a flat look
+      chatArea.style.marginBottom = '0.5rem';
+      chatArea.style.maxHeight = '180px';
+      chatArea.style.overflowY = 'auto';
+      chatArea.style.background = 'none';
+      chatArea.style.borderRadius = 0;
+      chatArea.style.padding = 0;
+      chatArea.style.color = '#fff';
+      const panelInput = document.querySelector('.panel-input');
+      panelInput.insertBefore(chatArea, panelInput.firstChild);
+    }
+    const messageDiv = document.createElement('div');
+    messageDiv.classList.add('chat-message', role);
+    // Remove extra boxy styles
+    messageDiv.style.margin = '0.25rem 0';
+    messageDiv.style.whiteSpace = 'pre-wrap';
+    messageDiv.style.background = 'none';
+    messageDiv.style.padding = '0';
+    messageDiv.style.borderRadius = '0';
+    messageDiv.style.boxShadow = 'none';
+    messageDiv.textContent = content;
+    chatArea.appendChild(messageDiv);
+    chatArea.scrollTop = chatArea.scrollHeight;
+  }
+
+  async function downloadZip() {
+    try {
+      if (Object.keys(generatedFiles).length === 0) {
+        alert('No files to export. Please generate files first.');
+        return;
+      }
+      const response = await fetch('/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(generatedFiles)
+      });
+      if (!response.ok) {
+        alert('Failed to export files.');
+        return;
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'project.zip';
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
       alert('Failed to export files.');
-      return;
     }
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'project.zip';
-    a.click();
-    window.URL.revokeObjectURL(url);
-  } catch (error) {
-    alert('Failed to export files.');
   }
-}
 
-async function deploy() {
-  const deployButton = document.getElementById('deployButton');
-  deployButton.textContent = 'Deploying...';
-  deployButton.disabled = true;
-  try {
-    if (Object.keys(generatedFiles).length === 0) {
-      alert('No files to deploy. Please generate files first.');
-      return;
-    }
-    const response = await fetch('/deploy', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ files: generatedFiles })
-    });
-    if (!response.ok) {
-      const errorData = await response.json();
-      alert('Error: ' + (errorData.error || 'Failed to deploy.'));
-      return;
-    }
-    const data = await response.json();
-    if (data.url) {
-      alert(`Deployed successfully! View your app at: ${data.url}`);
-      window.open(data.url, '_blank');
-    } else {
-      alert('Deployment successful, but no URL was returned.');
-    }
-  } catch (error) {
-    alert('Failed to deploy files.');
-  } finally {
-    deployButton.textContent = 'Deploy';
-    deployButton.disabled = false;
-  }
-}
-
-function highlightButton(button) {
-  document.querySelectorAll('.app-type-buttons button').forEach(btn => btn.classList.remove('selected'));
-  button.classList.add('selected');
-  selectedAppType = button.innerText.trim().toLowerCase();
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.app-type-buttons button').forEach(btn => {
-    btn.addEventListener('click', function() {
-      highlightButton(this);
-      const deployBtn = document.getElementById('deployButton');
-      if (this.innerText.trim().toLowerCase() === 'web app') {
-        deployBtn.style.display = '';
+  async function deploy() {
+    const deployButton = document.getElementById('deployButton');
+    deployButton.textContent = 'Deploying...';
+    deployButton.disabled = true;
+    try {
+      if (Object.keys(generatedFiles).length === 0) {
+        alert('No files to deploy. Please generate files first.');
+        return;
+      }
+      const response = await fetch('/deploy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: generatedFiles })
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        alert('Error: ' + (errorData.error || 'Failed to deploy.'));
+        return;
+      }
+      const data = await response.json();
+      if (data.url) {
+        alert(`Deployed successfully! View your app at: ${data.url}`);
+        window.open(data.url, '_blank');
       } else {
-        deployBtn.style.display = 'none';
+        alert('Deployment successful, but no URL was returned.');
       }
-    });
-  });
-  const appTypeButtons = document.querySelectorAll('.app-type-buttons button');
-  let foundSelected = false;
-  appTypeButtons.forEach(btn => {
-    if (btn.innerText.trim().toLowerCase() === selectedAppType) {
-      btn.classList.add('selected');
-      foundSelected = true;
-    } else {
-      btn.classList.remove('selected');
+    } catch (error) {
+      alert('Failed to deploy files.');
+    } finally {
+      deployButton.textContent = 'Deploy';
+      deployButton.disabled = false;
     }
-  });
-  if (!foundSelected && appTypeButtons.length > 0) {
-    appTypeButtons[0].classList.add('selected');
-    selectedAppType = appTypeButtons[0].innerText.trim().toLowerCase();
   }
-  const deployBtn = document.getElementById('deployButton');
-  if (selectedAppType === 'web app') {
-    deployBtn.style.display = '';
-  } else {
-    deployBtn.style.display = 'none';
-  }
-  const sendBtn = document.getElementById('sendBtn');
-  if (sendBtn) {
-    sendBtn.disabled = false;
-    sendBtn.style.pointerEvents = 'auto';
-    sendBtn.style.opacity = '1';
-    sendBtn.onclick = null;
-    sendBtn.addEventListener('click', sendPrompt);
-  }
-  const inputBox = document.getElementById('inputBox');
-  if (inputBox) {
-    inputBox.onkeypress = null;
-    inputBox.addEventListener('keypress', function (event) {
-      if (event.key === 'Enter') {
-        sendPrompt();
-      }
-    });
-  }
-  document.querySelectorAll('.toggle-group button')[0].addEventListener('click', showPreview);
-  document.querySelectorAll('.toggle-group button')[1].addEventListener('click', showCode);
-  document.querySelector('.fullscreen-icon').addEventListener('click', toggleFullScreen);
-  document.querySelector('.export-btn').addEventListener('click', downloadZip);
-  document.getElementById('deployButton').addEventListener('click', deploy);
-});
 
-// Floating background elements
-(function() {
-  const bgElements = document.getElementById('bgElements');
-  if (bgElements) {
-    const icons = [
-      'fa-mobile-alt', 'fa-window-maximize', 'fa-file-code', 'fa-cube',
-      'fa-server', 'fa-database', 'fa-code', 'fa-android', 'fa-apple',
-      'fa-windows', 'fa-rocket', 'fa-bolt', 'fa-magic'
-    ];
-    for (let i = 0; i < 18; i++) {
-      const icon = document.createElement('i');
-      icon.className = `bg-icon fas ${icons[Math.floor(Math.random() * icons.length)]}`;
-      icon.style.left = `${Math.random() * 100}%`;
-      icon.style.top = `${Math.random() * 100}%`;
-      icon.style.fontSize = `${1 + Math.random() * 3}rem`;
-      icon.style.opacity = `${0.05 + Math.random() * 0.1}`;
-      icon.style.animationDuration = `${10 + Math.random() * 20}s`;
-      icon.style.animationDelay = `${Math.random() * 5}s`;
-      bgElements.appendChild(icon);
-    }
+  function highlightButton(button) {
+    document.querySelectorAll('.app-type-buttons button').forEach(btn => btn.classList.remove('selected'));
+    button.classList.add('selected');
+    selectedAppType = button.innerText.trim().toLowerCase();
   }
-})();
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.app-type-buttons button').forEach(btn => {
+      btn.addEventListener('click', function() {
+        highlightButton(this);
+        const deployBtn = document.getElementById('deployButton');
+        if (this.innerText.trim().toLowerCase() === 'web app') {
+          deployBtn.style.display = '';
+        } else {
+          deployBtn.style.display = 'none';
+        }
+      });
+    });
+    const appTypeButtons = document.querySelectorAll('.app-type-buttons button');
+    let foundSelected = false;
+    appTypeButtons.forEach(btn => {
+      if (btn.innerText.trim().toLowerCase() === selectedAppType) {
+        btn.classList.add('selected');
+        foundSelected = true;
+      } else {
+        btn.classList.remove('selected');
+      }
+    });
+    if (!foundSelected && appTypeButtons.length > 0) {
+      appTypeButtons[0].classList.add('selected');
+      selectedAppType = appTypeButtons[0].innerText.trim().toLowerCase();
+    }
+    const deployBtn = document.getElementById('deployButton');
+    if (selectedAppType === 'web app') {
+      deployBtn.style.display = '';
+    } else {
+      deployBtn.style.display = 'none';
+    }
+
+    const sendBtn = document.getElementById('sendBtn');
+    if (sendBtn) {
+      sendBtn.disabled = false;
+      sendBtn.style.pointerEvents = 'auto';
+      sendBtn.style.opacity = '1';
+      sendBtn.onclick = null;
+      sendBtn.addEventListener('click', sendPrompt);
+    }
+
+    const inputBox = document.getElementById('inputBox');
+    if (inputBox) {
+      inputBox.onkeypress = null;
+      inputBox.addEventListener('keypress', function (event) {
+        if (event.key === 'Enter') {
+          sendPrompt();
+        }
+      });
+    }
+
+    document.querySelectorAll('.toggle-group button')[0].addEventListener('click', showPreview);
+    document.querySelectorAll('.toggle-group button')[1].addEventListener('click', showCode);
+    document.querySelector('.fullscreen-icon').addEventListener('click', toggleFullScreen);
+    document.querySelector('.export-btn').addEventListener('click', downloadZip);
+    document.getElementById('deployButton').addEventListener('click', deploy);
+  });
+
+  // Floating background elements
+  (function() {
+    const bgElements = document.getElementById('bgElements');
+    if (bgElements) {
+      const icons = [
+        'fa-mobile-alt', 'fa-window-maximize', 'fa-file-code', 'fa-cube',
+        'fa-server', 'fa-database', 'fa-code', 'fa-android', 'fa-apple',
+        'fa-windows', 'fa-rocket', 'fa-bolt', 'fa-magic'
+      ];
+      for (let i = 0; i < 18; i++) {
+        const icon = document.createElement('i');
+        icon.className = `bg-icon fas ${icons[Math.floor(Math.random() * icons.length)]}`;
+        icon.style.left = `${Math.random() * 100}%`;
+        icon.style.top = `${Math.random() * 100}%`;
+        icon.style.fontSize = `${1 + Math.random() * 3}rem`;
+        icon.style.opacity = `${0.05 + Math.random() * 0.1}`;
+        icon.style.animationDuration = `${10 + Math.random() * 20}s`;
+        icon.style.animationDelay = `${Math.random() * 5}s`;
+        bgElements.appendChild(icon);
+      }
+    }
+  })();
   </script>
 </head>
 <body>
   <!-- Floating background elements -->
   <div id="bgElements"></div>
-  <!-- Feedback Popup -->
-  <div id="feedbackPopup" style="
-    display: none;
-    position: fixed;
-    bottom: 32px;
-    right: 32px;
-    width: 340px;
-    background: #18181b;
-    color: #fff;
-    border-radius: 18px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
-    z-index: 10000;
-    padding: 0;
-    overflow: hidden;
-    font-family: inherit;
-    animation: fadeInUp 0.3s;
-  ">
-    <div style="padding: 1.2rem 1.5rem 1rem 1.5rem;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-weight:700;font-size:1.1rem;">Feedback</span>
-        <button id="closeFeedback" style="background:none;border:none;color:#fff;font-size:1.2rem;cursor:pointer;">&times;</button>
-      </div>
-      <div id="feedbackStep" style="margin-top:1.2rem;">
-        <!-- Dynamic questions will appear here -->
-      </div>
-    </div>
-  </div>
   <header>
     <div class="logo-title">
       <img src="logo.png" alt="Fronti Logo">
@@ -814,19 +777,6 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     </div>
     <div class="toggle-buttons">
-      <!-- Feedback button (left of Preview) -->
-      <button id="feedbackBtn" style="
-        background: linear-gradient(to right, #00ffff, #a855f7);
-        color: #fff;
-        border: none;
-        border-radius: 12px;
-        padding: 0.6rem 1.2rem;
-        font-size: 1rem;
-        font-weight: 600;
-        cursor: pointer;
-        margin-right: 1rem;
-        transition: filter 0.2s;
-      ">Feedback</button>
       <div class="toggle-group">
         <button class="active-btn" onclick="showPreview()">Preview</button>
         <button class="inactive-btn" onclick="showCode()">Code</button>
@@ -863,236 +813,6 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     </div>
   </main>
-  <script>
-    // ...existing code...
-
-    // --- Feedback popup logic (modular Firebase, robust for all domains) ---
-    (function() {
-      // Use Firebase modular API for better compatibility
-      let firebaseApp = null;
-      let db = null;
-      let firebaseReady = false;
-      let firebaseInitError = null;
-
-      // Helper: load modular Firebase if not present
-      async function loadFirebaseModular() {
-        if (window.firebase && window.firebase.initializeApp && window.firebase.database) {
-          // compat API present, fallback to compat
-          return false;
-        }
-        if (!window.firebaseAppModular) {
-          // Dynamically load modular Firebase
-          try {
-            await import('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js');
-            await import('https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js');
-            return false;
-          } catch (e) {
-            // Modular import failed, fallback to compat
-            return false;
-          }
-        }
-        return true;
-      }
-
-      // Firebase config (should work for all domains if allowed in Firebase console)
-      const firebaseConfig = {
-        apiKey: "AIzaSyBo-iuUmIVgcBYWG8ltWgugkVbfqFUf4wg",
-        authDomain: "fronti-login.firebaseapp.com",
-        databaseURL: "https://fronti-login-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "fronti-login",
-        storageBucket: "fronti-login.appspot.com",
-        messagingSenderId: "403453632821",
-        appId: "1:403453632821:web:7583bc00458748e447ac7c",
-        measurementId: "G-GH16N4RN8S"
-      };
-
-      async function initFirebase() {
-        try {
-          if (window.firebase && window.firebase.initializeApp && window.firebase.database) {
-            // compat API
-            if (!window._frontiFirebaseApp) {
-              window._frontiFirebaseApp = firebase.initializeApp(firebaseConfig, "fronti-feedback");
-            }
-            firebaseApp = window._frontiFirebaseApp;
-            db = firebase.database(firebaseApp);
-            firebaseReady = true;
-            return;
-          }
-          // Try modular (should not happen with your current script tags, but future-proof)
-          const modular = await loadFirebaseModular();
-          if (modular && window.firebaseAppModular) {
-            const { initializeApp } = window.firebaseAppModular;
-            const { getDatabase, ref, push } = window.firebaseDatabaseModular;
-            firebaseApp = initializeApp(firebaseConfig, "fronti-feedback");
-            db = getDatabase(firebaseApp);
-            firebaseReady = true;
-            return;
-          }
-          firebaseInitError = 'Firebase SDK not loaded.';
-        } catch (e) {
-          firebaseInitError = e.message || 'Firebase init failed.';
-        }
-      }
-
-      // Feedback questions
-      const questions = [
-        "What feature do you wish Fronti had?",
-        "What should we build next?",
-        "Was the interface easy to use?",
-        "Would you pay $20/month for Fronti Pro?",
-        "What must be included in Pro to make it worth paying for?",
-        "What price feels right for the value Fronti gives you?"
-      ];
-      let answers = Array(questions.length).fill('');
-      let currentStep = 0;
-
-      function renderStep() {
-        const stepDiv = document.getElementById('feedbackStep');
-        if (currentStep < questions.length) {
-          stepDiv.innerHTML = `
-            <div style="font-weight:600;font-size:1.05rem;margin-bottom:0.7rem;">${questions[currentStep]}</div>
-            <textarea id="feedbackInput" rows="3" style="width:100%;border-radius:8px;padding:0.5rem;font-size:1rem;background:#23232b;color:#fff;border:1px solid #333;resize:vertical;">${answers[currentStep] || ''}</textarea>
-            <div style="display:flex;justify-content:space-between;margin-top:1.1rem;">
-              <button id="feedbackBack" style="padding:0.5rem 1.2rem;border-radius:8px;background:#23232b;color:#fff;font-weight:600;border:none;cursor:pointer;${currentStep === 0 ? 'opacity:0.5;pointer-events:none;' : ''}">Back</button>
-              <button id="feedbackNext" style="padding:0.5rem 1.2rem;border-radius:8px;background:linear-gradient(to right,#00ffff,#a855f7);color:#fff;font-weight:600;border:none;cursor:pointer;">Next</button>
-            </div>
-            <div id="feedbackStatus" style="margin-top:0.7rem;font-size:0.95rem;"></div>
-          `;
-          document.getElementById('feedbackInput').focus();
-          document.getElementById('feedbackBack').onclick = function() {
-            answers[currentStep] = document.getElementById('feedbackInput').value.trim();
-            if (currentStep > 0) {
-              currentStep--;
-              renderStep();
-            }
-          };
-          document.getElementById('feedbackNext').onclick = async function() {
-            const input = document.getElementById('feedbackInput').value.trim();
-            if (!input) {
-              const status = document.getElementById('feedbackStatus');
-              status.textContent = 'Please answer this question.';
-              status.style.color = '#ff6b6b';
-              return;
-            }
-            answers[currentStep] = input;
-            // Save this answer to Firebase, but don't block UI
-            if (firebaseReady && db) {
-              try {
-                db.ref('feedback_answers').push({
-                  question: questions[currentStep],
-                  answer: input,
-                  step: currentStep,
-                  timestamp: Date.now(),
-                  userAgent: navigator.userAgent,
-                  origin: window.location.origin,
-                  host: window.location.host
-                });
-              } catch (e) {
-                // Show error if on production domain
-                if (window.location.host.includes('fronti.tech')) {
-                  const status = document.getElementById('feedbackStatus');
-                  status.textContent = '⚠️ Feedback not saved. Check Firebase rules for this domain.';
-                  status.style.color = '#ff6b6b';
-                }
-              }
-            } else if (window.location.host.includes('fronti.tech')) {
-              const status = document.getElementById('feedbackStatus');
-              status.textContent = '⚠️ Feedback not saved. Firebase not ready.';
-              status.style.color = '#ff6b6b';
-            }
-            currentStep++;
-            renderStep();
-          };
-        } else if (currentStep === questions.length) {
-          // Save all answers as a single feedback entry (optional, for summary)
-          if (firebaseReady && db) {
-            try {
-              db.ref('feedback').push({
-                q1: answers[0],
-                q2: answers[1],
-                q3: answers[2],
-                q4: answers[3],
-                q5: answers[4],
-                q6: answers[5],
-                timestamp: Date.now(),
-                userAgent: navigator.userAgent,
-                origin: window.location.origin,
-                host: window.location.host
-              });
-            } catch (e) {
-              if (window.location.host.includes('fronti.tech')) {
-                const status = document.getElementById('feedbackStatus');
-                status.textContent = '⚠️ Feedback not saved. Check Firebase rules for this domain.';
-                status.style.color = '#ff6b6b';
-              }
-            }
-          } else if (window.location.host.includes('fronti.tech')) {
-            const status = document.getElementById('feedbackStatus');
-            status.textContent = '⚠️ Feedback not saved. Firebase not ready.';
-            status.style.color = '#ff6b6b';
-          }
-          // Show share step
-          stepDiv.innerHTML = `
-            <div style="font-weight:600;font-size:1.05rem;margin-bottom:0.7rem;text-align:center;">
-              🎉 Thank you for your feedback!<br><br>
-              <div>Share Fronti with a friend:</div>
-              <a href="https://fronti.tech" target="_blank" style="color:#00ffff;text-decoration:underline;display:block;margin:0.7rem 0;">fronti.tech</a>
-              <button id="copyLinkBtn" style="margin-bottom:1rem;padding:0.4rem 1rem;border-radius:8px;background:#23232b;color:#fff;font-weight:600;border:none;cursor:pointer;">Copy Link</button>
-              <br>
-              <button id="feedbackNext" style="padding:0.5rem 1.2rem;border-radius:8px;background:linear-gradient(to right,#00ffff,#a855f7);color:#fff;font-weight:600;border:none;cursor:pointer;">Next</button>
-            </div>
-            <div id="feedbackStatus" style="margin-top:0.7rem;font-size:0.95rem;text-align:center;"></div>
-          `;
-          document.getElementById('copyLinkBtn').onclick = function() {
-            navigator.clipboard.writeText('https://fronti.tech');
-            const status = document.getElementById('feedbackStatus');
-            status.textContent = 'Link copied!';
-            status.style.color = '#00ffae';
-            setTimeout(() => { status.textContent = ''; }, 1200);
-          };
-          document.getElementById('feedbackNext').onclick = function() {
-            currentStep++;
-            renderStep();
-          };
-        } else {
-          stepDiv.innerHTML = `
-            <div style="font-weight:600;font-size:1.05rem;margin-bottom:0.7rem;text-align:center;">
-              Want to talk to the founder?<br>
-              Email him at <a href="mailto:rudransh.fronti@gmail.com" style="color:#00ffff;text-decoration:underline;">rudransh.fronti@gmail.com</a>
-            </div>
-            <div style="text-align:center;margin-top:1.5rem;">
-              <button id="closeFinalFeedback" style="padding:0.5rem 1.2rem;border-radius:8px;background:linear-gradient(to right,#00ffff,#a855f7);color:#fff;font-weight:600;border:none;cursor:pointer;">Close</button>
-            </div>
-          `;
-          document.getElementById('closeFinalFeedback').onclick = function() {
-            document.getElementById('feedbackPopup').style.display = 'none';
-            currentStep = 0;
-            answers = Array(questions.length).fill('');
-          };
-        }
-      }
-
-      document.addEventListener('DOMContentLoaded', async function() {
-        await initFirebase(); // Try to init Firebase, but always allow popup to work
-        var feedbackBtn = document.getElementById('feedbackBtn');
-        var closeFeedbackBtn = document.getElementById('closeFeedback');
-        if (feedbackBtn) {
-          feedbackBtn.onclick = function() {
-            currentStep = 0;
-            answers = Array(questions.length).fill('');
-            renderStep();
-            document.getElementById('feedbackPopup').style.display = 'block';
-          };
-        }
-        if (closeFeedbackBtn) {
-          closeFeedbackBtn.onclick = function() {
-            document.getElementById('feedbackPopup').style.display = 'none';
-          };
-        }
-      });
-    })();
-
-    // ...existing code...
-  </script>
 </body>
 </html>
+
