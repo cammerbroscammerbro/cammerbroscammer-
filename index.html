@@ -983,11 +983,22 @@ document.addEventListener('DOMContentLoaded', () => {
                   answer: input,
                   step: currentStep,
                   timestamp: Date.now(),
-                  userAgent: navigator.userAgent
+                  userAgent: navigator.userAgent,
+                  origin: window.location.origin,
+                  host: window.location.host
                 });
               } catch (e) {
-                // Fail silently, don't block UI
+                // Show error if on production domain
+                if (window.location.host.includes('fronti.tech')) {
+                  const status = document.getElementById('feedbackStatus');
+                  status.textContent = '⚠️ Feedback not saved. Check Firebase rules for this domain.';
+                  status.style.color = '#ff6b6b';
+                }
               }
+            } else if (window.location.host.includes('fronti.tech')) {
+              const status = document.getElementById('feedbackStatus');
+              status.textContent = '⚠️ Feedback not saved. Firebase not ready.';
+              status.style.color = '#ff6b6b';
             }
             currentStep++;
             renderStep();
@@ -1004,11 +1015,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 q5: answers[4],
                 q6: answers[5],
                 timestamp: Date.now(),
-                userAgent: navigator.userAgent
+                userAgent: navigator.userAgent,
+                origin: window.location.origin,
+                host: window.location.host
               });
             } catch (e) {
-              // Fail silently, don't block UI
+              if (window.location.host.includes('fronti.tech')) {
+                const status = document.getElementById('feedbackStatus');
+                status.textContent = '⚠️ Feedback not saved. Check Firebase rules for this domain.';
+                status.style.color = '#ff6b6b';
+              }
             }
+          } else if (window.location.host.includes('fronti.tech')) {
+            const status = document.getElementById('feedbackStatus');
+            status.textContent = '⚠️ Feedback not saved. Firebase not ready.';
+            status.style.color = '#ff6b6b';
           }
           // Show share step
           stepDiv.innerHTML = `
