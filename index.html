@@ -312,7 +312,62 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-html.min.js"></script>
+  <!-- Firebase App (the core Firebase SDK) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js"></script>
   <script>
+// --- Feedback logic with Firebase Realtime Database ---
+const firebaseConfig = {
+  apiKey: "AIzaSyBo-iuUmIVgcBYWG8ltWgugkVbfqFUf4wg",
+  authDomain: "fronti-login.firebaseapp.com",
+  databaseURL: "https://fronti-login-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "fronti-login",
+  storageBucket: "fronti-login.appspot.com",
+  messagingSenderId: "403453632821",
+  appId: "1:403453632821:web:7583bc00458748e447ac7c",
+  measurementId: "G-GH16N4RN8S"
+};
+const app = firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+function showFeedbackPopup() {
+  const popup = document.getElementById('feedbackPopup');
+  const step = document.getElementById('feedbackStep');
+  step.innerHTML = `
+    <textarea id="feedbackText" rows="5" style="width:100%;border-radius:8px;padding:0.5rem;font-size:1rem;"></textarea>
+    <button id="submitFeedback" style="margin-top:1rem;width:100%;padding:0.7rem;border-radius:8px;background:linear-gradient(to right,#00ffff,#a855f7);color:#fff;font-weight:600;border:none;cursor:pointer;">Send Feedback</button>
+    <div id="feedbackStatus" style="margin-top:0.7rem;font-size:0.95rem;"></div>
+  `;
+  popup.style.display = 'block';
+  document.getElementById('submitFeedback').onclick = async function() {
+    const text = document.getElementById('feedbackText').value.trim();
+    const status = document.getElementById('feedbackStatus');
+    if (!text) {
+      status.textContent = 'Please enter your feedback.';
+      status.style.color = '#ff6b6b';
+      return;
+    }
+    try {
+      await firebase.database().ref('feedback').push({
+        text,
+        timestamp: Date.now(),
+        userAgent: navigator.userAgent
+      });
+      status.textContent = 'Thank you for your feedback!';
+      status.style.color = '#00ffae';
+      document.getElementById('feedbackText').value = '';
+    } catch (e) {
+      status.textContent = 'Failed to send feedback.';
+      status.style.color = '#ff6b6b';
+    }
+  };
+}
+
+document.getElementById('feedbackBtn').onclick = showFeedbackPopup;
+document.getElementById('closeFeedback').onclick = function() {
+  document.getElementById('feedbackPopup').style.display = 'none';
+};
+
 // --- Remove all Firebase and auth logic, make this page standalone ---
 let selectedAppType = 'web app';
 let generatedFiles = {};
