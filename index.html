@@ -312,141 +312,14 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-html.min.js"></script>
-  <!-- Firebase App (the core Firebase SDK) -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script>
-    // Your web app's Firebase configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyBo-iuUmIVgcBYWG8ltWgugkVbfqFUf4wg",
-      authDomain: "fronti-login.firebaseapp.com",
-      databaseURL: "https://fronti-login-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "fronti-login",
-      storageBucket: "fronti-login.appspot.com",
-      messagingSenderId: "403453632821",
-      appId: "1:403453632821:web:7583bc00458748e447ac7c",
-      measurementId: "G-GH16N4RN8S"
-    };
-
-    // Initialize Firebase (compat for global firebase object)
-    firebase.initializeApp(firebaseConfig);
-
-    // Set Auth persistence to LOCAL (cross-subdomain)
-    firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-
-    // Check auth state and redirect if not logged in
-    firebase.auth().onAuthStateChanged((user) => {
-      if (user) {
-        const uid = user.uid;
-        // Save/fetch user data in Realtime Database using UID
-        firebase.database().ref(`/users/${uid}`).set({
-          lastLogin: Date.now(),
-          // ...add more user data if needed...
-        });
-        // ...you can use uid for further logic...
-      } else {
-        // Redirect to login if not authenticated
-        window.location.href = "https://auth.fronti.tech";
-      }
-    });
-
-    // Expose db for feedback logic (if needed elsewhere)
-    window._frontiFirebaseDB = firebase.database();
-    window._frontiFirebaseRef = (db, path) => firebase.database().ref(path);
-    window._frontiFirebasePush = (ref) => ref.push();
-    window._frontiFirebaseSet = (ref, data) => ref.set(data);
-  </script>
-  <script>
+// --- Remove all Firebase and auth logic, make this page standalone ---
 let selectedAppType = 'web app';
 let generatedFiles = {};
 let activeFile = null;
 let isFullScreen = false;
 
-// --- Firebase chat, code, and preview saving logic ---
-function saveChatToFirebase(role, content) {
-  try {
-    const user = firebase.auth().currentUser;
-    if (
-      user &&
-      window._frontiFirebaseDB &&
-      window._frontiFirebaseRef &&
-      window._frontiFirebasePush &&
-      window._frontiFirebaseSet
-    ) {
-      const db = window._frontiFirebaseDB;
-      const ref = window._frontiFirebaseRef;
-      const push = window._frontiFirebasePush;
-      const set = window._frontiFirebaseSet;
-      // Save chat under user's UID
-      const chatRef = ref(db, `users/${user.uid}/chat`);
-      const newChatRef = push(chatRef);
-      set(newChatRef, {
-        role: role,
-        content: content,
-        email: user.email || null,
-        displayName: user.displayName || null,
-        timestamp: Date.now()
-      });
-    }
-  } catch (e) {}
-}
-
-function saveCodeToFirebase(codeFiles) {
-  try {
-    const user = firebase.auth().currentUser;
-    if (
-      user &&
-      window._frontiFirebaseDB &&
-      window._frontiFirebaseRef &&
-      window._frontiFirebasePush &&
-      window._frontiFirebaseSet
-    ) {
-      const db = window._frontiFirebaseDB;
-      const ref = window._frontiFirebaseRef;
-      const push = window._frontiFirebasePush;
-      const set = window._frontiFirebaseSet;
-      // Save code under user's UID
-      const codeRef = ref(db, `users/${user.uid}/code`);
-      const newCodeRef = push(codeRef);
-      set(newCodeRef, {
-        files: codeFiles,
-        timestamp: Date.now()
-      });
-    }
-  } catch (e) {}
-}
-
-function savePreviewToFirebase(previewHtml) {
-  try {
-    const user = firebase.auth().currentUser;
-    if (
-      user &&
-      window._frontiFirebaseDB &&
-      window._frontiFirebaseRef &&
-      window._frontiFirebasePush &&
-      window._frontiFirebaseSet
-    ) {
-      const db = window._frontiFirebaseDB;
-      const ref = window._frontiFirebaseRef;
-      const push = window._frontiFirebasePush;
-      const set = window._frontiFirebaseSet;
-      // Save preview under user's UID
-      const previewRef = ref(db, `users/${user.uid}/preview`);
-      const newPreviewRef = push(previewRef);
-      set(newPreviewRef, {
-        html: previewHtml,
-        timestamp: Date.now()
-      });
-    }
-  } catch (e) {}
-}
-
-// --- Modify appendMessage to save chat ---
 function appendMessage(role, content) {
-  // Save chat to Firebase
-  saveChatToFirebase(role, content);
-
   // Show chat messages just above the input box (in panel-input)
   let chatArea = document.getElementById('chatArea');
   if (!chatArea) {
@@ -475,7 +348,6 @@ function appendMessage(role, content) {
   chatArea.scrollTop = chatArea.scrollHeight;
 }
 
-// --- Modify sendPrompt to save code ---
 async function sendPrompt() {
   const inputBox = document.getElementById('inputBox');
   const prompt = inputBox.value.trim();
@@ -483,44 +355,32 @@ async function sendPrompt() {
     alert('Please enter a prompt.');
     return;
   }
-
   const sendBtn = document.getElementById('sendBtn');
   sendBtn.textContent = '⏳';
   sendBtn.disabled = true;
-
   try {
     appendMessage('user', prompt);
-
     const response = await fetch('/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt, type: selectedAppType })
     });
-
     if (!response.ok) {
       const errorData = await response.json();
       alert('Failed to generate code: ' + (errorData.error || 'Unknown error.'));
       return;
     }
-
     const data = await response.json();
     if (!data.files || Object.keys(data.files).length === 0) {
       alert('No files were generated. Please try again.');
       return;
     }
-
     appendMessage('assistant', (typeof data.explanation === 'string' && data.explanation.trim())
       ? data.explanation
       : 'No README.md was generated.');
-
     generatedFiles = data.files;
     activeFile = Object.keys(generatedFiles)[0];
-
-    // Save code to Firebase
-    saveCodeToFirebase(generatedFiles);
-
     showPreview();
-
   } catch (error) {
     alert('Failed to fetch code from the backend.');
   } finally {
@@ -530,7 +390,6 @@ async function sendPrompt() {
   }
 }
 
-// --- Modify showPreview to save preview HTML ---
 async function showPreview() {
   document.getElementById('codeDisplay').style.display = 'none';
   let previewPanel = document.getElementById('previewPanel');
@@ -557,14 +416,12 @@ async function showPreview() {
   previewPanel.style.display = '';
   previewArea.style.display = 'block';
   previewArea.innerHTML = '<div style="padding:1rem;color:#888;">Loading preview...</div>';
-
   try {
     const response = await fetch('/preview', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: selectedAppType, files: generatedFiles })
     });
-
     if (!response.ok) {
       previewArea.innerHTML = `
         <div style="color:#ff6b6b;text-align:center;padding:2rem;">
@@ -574,7 +431,6 @@ async function showPreview() {
       `;
       return;
     }
-
     const data = await response.json();
     if (!data.files || typeof data.files !== 'object') {
       previewArea.innerHTML = `
@@ -606,7 +462,7 @@ async function showPreview() {
       );
       if (htmlFile) {
         let html = data.files[htmlFile];
-        html = html.replace(/<link\s+rel=["']stylesheet["']\s+href=["']([^"']+)["']\s*\/?>/gi, (match, href) => {
+        html = html.replace(/<link\s+rel=["']stylesheet["']\s+href=["']([^"']+)["']\s*\/?>(?!<\/style>)/gi, (match, href) => {
           let cssContent = data.files[href] || data.files[href.replace(/^\.\//, '')];
           if (!cssContent && !href.endsWith('.css')) {
             cssContent = data.files[href + '.css'] || data.files[href.replace(/^\.\//, '') + '.css'];
@@ -653,10 +509,6 @@ async function showPreview() {
     }
 
     previewPanel.appendChild(iframe);
-
-    // Save preview HTML to Firebase
-    savePreviewToFirebase(previewHtml);
-
   } catch (error) {
     previewArea.innerHTML = `
       <div style="color:#ff6b6b;text-align:center;padding:2rem;">
@@ -743,92 +595,6 @@ function toggleFullScreen() {
     header.style.display = 'flex';
     isFullScreen = false;
   }
-}
-
-async function sendPrompt() {
-  const inputBox = document.getElementById('inputBox');
-  const prompt = inputBox.value.trim();
-  if (!prompt) {
-    alert('Please enter a prompt.');
-    return;
-  }
-
-  const sendBtn = document.getElementById('sendBtn');
-  sendBtn.textContent = '⏳';
-  sendBtn.disabled = true;
-
-  try {
-    appendMessage('user', prompt);
-
-    const response = await fetch('/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, type: selectedAppType })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      alert('Failed to generate code: ' + (errorData.error || 'Unknown error.'));
-      return;
-    }
-
-    const data = await response.json();
-    if (!data.files || Object.keys(data.files).length === 0) {
-      alert('No files were generated. Please try again.');
-      return;
-    }
-
-    appendMessage('assistant', (typeof data.explanation === 'string' && data.explanation.trim())
-      ? data.explanation
-      : 'No README.md was generated.');
-
-    generatedFiles = data.files;
-    activeFile = Object.keys(generatedFiles)[0];
-
-    // Save code to Firebase
-    saveCodeToFirebase(generatedFiles);
-
-    showPreview();
-
-  } catch (error) {
-    alert('Failed to fetch code from the backend.');
-  } finally {
-    sendBtn.textContent = '➤';
-    sendBtn.disabled = false;
-    inputBox.value = '';
-  }
-}
-
-function appendMessage(role, content) {
-  // Save chat to Firebase
-  saveChatToFirebase(role, content);
-
-  // Show chat messages just above the input box (in panel-input)
-  let chatArea = document.getElementById('chatArea');
-  if (!chatArea) {
-    chatArea = document.createElement('div');
-    chatArea.id = 'chatArea';
-    chatArea.style.marginBottom = '0.5rem';
-    chatArea.style.maxHeight = '180px';
-    chatArea.style.overflowY = 'auto';
-    chatArea.style.background = 'none';
-    chatArea.style.borderRadius = 0;
-    chatArea.style.padding = 0;
-    chatArea.style.color = '#fff';
-    const panelInput = document.querySelector('.panel-input');
-    panelInput.insertBefore(chatArea, panelInput.firstChild);
-  }
-  const messageDiv = document.createElement('div');
-  messageDiv.classList.add('chat-message', role);
-  messageDiv.style.margin = '0.25rem 0';
-  messageDiv.style.whiteSpace = 'pre-wrap';
-  messageDiv.style.background = 'none';
-  messageDiv.style.padding = '0';
-  messageDiv.style.borderRadius = '0';
-  messageDiv.style.boxShadow = 'none';
-  messageDiv.textContent = content;
-  chatArea.appendChild(messageDiv);
-  chatArea.scrollTop = chatArea.scrollHeight;
 }
 
 async function downloadZip() {
@@ -930,7 +696,6 @@ document.addEventListener('DOMContentLoaded', () => {
   } else {
     deployBtn.style.display = 'none';
   }
-
   const sendBtn = document.getElementById('sendBtn');
   if (sendBtn) {
     sendBtn.disabled = false;
@@ -939,7 +704,6 @@ document.addEventListener('DOMContentLoaded', () => {
     sendBtn.onclick = null;
     sendBtn.addEventListener('click', sendPrompt);
   }
-
   const inputBox = document.getElementById('inputBox');
   if (inputBox) {
     inputBox.onkeypress = null;
@@ -949,7 +713,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
-
   document.querySelectorAll('.toggle-group button')[0].addEventListener('click', showPreview);
   document.querySelectorAll('.toggle-group button')[1].addEventListener('click', showCode);
   document.querySelector('.fullscreen-icon').addEventListener('click', toggleFullScreen);
