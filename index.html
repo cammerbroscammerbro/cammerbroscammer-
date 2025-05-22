@@ -816,7 +816,7 @@
   <script type="module">
   // Firebase imports
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+  import { getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 
   const firebaseConfig = {
       apiKey: "AIzaSyBo-iuUmIVgcBYWG8ltWgugkVbfqFUf4wg",
@@ -831,6 +831,8 @@
 
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
+  // Set persistence to local to help with cross-subdomain login
+  setPersistence(auth, browserLocalPersistence);
 
   onAuthStateChanged(auth, (user) => {
     if (!user) {
@@ -842,5 +844,3 @@
   </script>
 </body>
 </html>
-
-
