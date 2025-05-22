@@ -307,6 +307,117 @@
       50% { transform: translateY(-50px) rotate(180deg); }
       100% { transform: translateY(0) rotate(360deg); }
     }
+    @media (max-width: 768px) {
+      main {
+        display: block;
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        min-height: 0;
+        overflow: hidden;
+        padding: 0;
+      }
+      .mobile-slider-wrapper {
+        width: 200vw;
+        height: 100vh;
+        display: flex;
+        flex-direction: row;
+        transition: transform 0.4s cubic-bezier(0.4,0,0.2,1);
+        will-change: transform;
+        position: absolute;
+        top: 0;
+        left: 0;
+      }
+      .panel-chat, .panel-preview, .panel-code {
+        width: 100vw !important;
+        min-width: 0 !important;
+        max-width: 100vw !important;
+        height: 100vh !important;
+        min-height: 0 !important;
+        border-radius: 0 !important;
+        box-sizing: border-box;
+        position: relative;
+        overflow: auto;
+      }
+      .panel-chat {
+        background: #121212;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        z-index: 2;
+      }
+      .panel-preview, .panel-code {
+        z-index: 1;
+      }
+      #codeDisplay {
+        height: 100vh !important;
+        min-height: 0 !important;
+        max-height: 100vh !important;
+      }
+      .toggle-mobile-panel-btn {
+        display: flex;
+        position: absolute;
+        top: 50%;
+        right: -18px;
+        z-index: 10;
+        background: linear-gradient(to right, #00ffff, #a855f7);
+        color: #fff;
+        border: none;
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .toggle-mobile-panel-btn.left {
+        left: -18px;
+        right: auto;
+        background: linear-gradient(to left, #00ffff, #a855f7);
+      }
+      header, .fullscreen-icon {
+        display: none !important;
+      }
+    }
+    @media (max-width: 900px) {
+      main {
+        height: 100vh !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+      }
+      .panel-preview, .panel-code, .panel-input {
+        height: 100vh !important;
+        min-height: 0 !important;
+        max-height: 100vh !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+      }
+      .panel-preview .preview-message,
+      .panel-code #codeEditor,
+      .panel-code #fileNav,
+      .panel-input #chatArea {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: 100%;
+        overflow-y: auto;
+        overflow-x: hidden;
+      }
+      .panel-input {
+        justify-content: flex-end;
+      }
+      .input-box,
+      .app-type-buttons {
+        flex-shrink: 0;
+      }
+      .panel-preview .preview-message {
+        margin: 0;
+        padding-bottom: 0;
+      }
+    }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
@@ -317,6 +428,8 @@
   let generatedFiles = {};
   let activeFile = null;
   let isFullScreen = false;
+  let mobilePanelIndex = 0; // 0: chat, 1: preview/code
+  let mobilePanel = 0; // 0: chat, 1: preview/code
 
   async function showPreview() {
     document.getElementById('codeDisplay').style.display = 'none';
@@ -574,6 +687,10 @@
       generatedFiles = data.files;
       activeFile = Object.keys(generatedFiles)[0];
       showPreview();
+      // Auto-slide to preview on mobile
+      if (window.innerWidth <= 768) {
+        updateMobilePanel(1);
+      }
 
     } catch (error) {
       alert('Failed to fetch code from the backend.');
@@ -682,6 +799,69 @@
     selectedAppType = button.innerText.trim().toLowerCase();
   }
 
+  function updateMobilePanel(slideTo) {
+    mobilePanelIndex = slideTo;
+    const wrapper = document.querySelector('.mobile-slider-wrapper');
+    if (wrapper) {
+      wrapper.style.transform = `translateX(-${mobilePanelIndex * 100}vw)`;
+    }
+  }
+
+  function toggleMobilePanel() {
+    updateMobilePanel(mobilePanelIndex === 0 ? 1 : 0);
+  }
+
+  function setMobilePanel(idx) {
+    mobilePanel = idx;
+    const main = document.querySelector('main');
+    if (window.innerWidth <= 900) {
+      if (mobilePanel === 0) {
+        main.classList.remove('mobile-panel-active');
+      } else {
+        main.classList.add('mobile-panel-active');
+      }
+    }
+  }
+
+  function addMobileToggleButtons() {
+    if (window.innerWidth > 900) return;
+    // Chat panel: add > button
+    const chatPanel = document.querySelector('.panel-input');
+    if (chatPanel && !chatPanel.querySelector('.mobile-toggle-btn')) {
+      const btn = document.createElement('button');
+      btn.className = 'mobile-toggle-btn';
+      btn.innerHTML = '&gt;';
+      btn.onclick = () => setMobilePanel(1);
+      chatPanel.appendChild(btn);
+    }
+    // Preview panel: add < button
+    const previewPanel = document.getElementById('previewPanel');
+    if (previewPanel && !previewPanel.querySelector('.mobile-toggle-btn')) {
+      const btn = document.createElement('button');
+      btn.className = 'mobile-toggle-btn left';
+      btn.innerHTML = '&lt;';
+      btn.onclick = () => setMobilePanel(0);
+      previewPanel.appendChild(btn);
+    }
+    // Code panel: add < button
+    const codePanel = document.getElementById('codeDisplay');
+    if (codePanel && !codePanel.querySelector('.mobile-toggle-btn')) {
+      const btn = document.createElement('button');
+      btn.className = 'mobile-toggle-btn left';
+      btn.innerHTML = '&lt;';
+      btn.onclick = () => setMobilePanel(0);
+      codePanel.appendChild(btn);
+    }
+    // Show header on mobile (for branding/buttons)
+    const header = document.querySelector('header');
+    if (header) header.style.display = 'flex';
+  }
+
+  window.addEventListener('resize', () => {
+    setMobilePanel(mobilePanel);
+    addMobileToggleButtons();
+  });
+
   document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.app-type-buttons button').forEach(btn => {
       btn.addEventListener('click', function() {
@@ -739,6 +919,37 @@
     document.querySelector('.fullscreen-icon').addEventListener('click', toggleFullScreen);
     document.querySelector('.export-btn').addEventListener('click', downloadZip);
     document.getElementById('deployButton').addEventListener('click', deploy);
+
+    // Add mobile panel toggle buttons
+    if (window.innerWidth <= 768) {
+      // Add > button to chat panel
+      const chatPanel = document.querySelector('.panel-chat');
+      if (chatPanel && !chatPanel.querySelector('.toggle-mobile-panel-btn')) {
+        const btn = document.createElement('button');
+        btn.className = 'toggle-mobile-panel-btn';
+        btn.innerHTML = '&gt;';
+        btn.onclick = toggleMobilePanel;
+        chatPanel.appendChild(btn);
+      }
+      // Add < button to preview/code panel
+      const previewPanel = document.getElementById('previewPanel');
+      if (previewPanel && !previewPanel.querySelector('.toggle-mobile-panel-btn')) {
+        const btn = document.createElement('button');
+        btn.className = 'toggle-mobile-panel-btn left';
+        btn.innerHTML = '&lt;';
+        btn.onclick = toggleMobilePanel;
+        previewPanel.appendChild(btn);
+      }
+      // Also add to code panel
+      const codePanel = document.getElementById('codeDisplay');
+      if (codePanel && !codePanel.querySelector('.toggle-mobile-panel-btn')) {
+        const btn = document.createElement('button');
+        btn.className = 'toggle-mobile-panel-btn left';
+        btn.innerHTML = '&lt;';
+        btn.onclick = toggleMobilePanel;
+        codePanel.appendChild(btn);
+      }
+    }
   });
 
   // Floating background elements
@@ -786,62 +997,32 @@
     </div>
   </header>
   <main>
-    <div class="panel-preview" id="previewPanel" style="position:relative;">
-      <div class="preview-message" id="previewArea" style="width:100%;height:100%;position:relative;z-index:2;">
-        <p>Here we show preview...</p>
+      <div class="panel-preview" id="previewPanel" style="position:relative;">
+        <div class="preview-message" id="previewArea" style="width:100%;height:100%;position:relative;z-index:2;">
+          <p>Here we show preview...</p>
+        </div>
       </div>
-    </div>
-    <div class="panel-code" id="codeDisplay" style="display: none; flex-direction: row;">
-      <div id="fileNav" style="width: 20%; background-color: #1f1f1f; padding: 1rem; overflow-y: auto; border-right: 1px solid #333;">
+      <div class="panel-code" id="codeDisplay" style="display: none; flex-direction: row;">
+        <div id="fileNav" style="width: 20%; background-color: #1f1f1f; padding: 1rem; overflow-y: auto; border-right: 1px solid #333;"></div>
+        <div id="codeEditor" style="flex: 1; padding: 1rem; overflow-y: auto; background-color: #121212; border-radius: 12px;"></div>
+        <div class="fullscreen-icon" onclick="toggleFullScreen()">
+          <img src="fullscreen-icon.png" alt="Toggle Full Screen">
+        </div>
       </div>
-      <div id="codeEditor" style="flex: 1; padding: 1rem; overflow-y: auto; background-color: #121212; border-radius: 12px;">
+      <div class="panel-input">
+        <div id="chatArea" style="flex: 1 1 auto; min-height: 0; max-height: none; overflow-y: auto; margin-bottom: 0.5rem; background: none; border-radius: 0; padding: 0; color: #fff; display: flex; flex-direction: column;"></div>
+        <div class="input-box">
+          <input type="text" placeholder="Describe your app vision..." id="inputBox">
+          <button id="sendBtn" type="button" style="pointer-events:auto;cursor:pointer;">➤</button>
+        </div>
+        <div class="app-type-buttons" style="display:flex;justify-content:center;gap:1rem;margin-top:1rem;">
+          <button type="button">Web App</button>
+          <button type="button">Mobile App</button>
+          <button type="button">Desktop App</button>
+        </div>
       </div>
-      <div class="fullscreen-icon" onclick="toggleFullScreen()">
-        <img src="fullscreen-icon.png" alt="Toggle Full Screen">
-      </div>
-    </div>
-    <div class="panel-input">
-      <div id="chatArea" style="flex: 1 1 auto; min-height: 0; max-height: none; overflow-y: auto; margin-bottom: 0.5rem; background: none; border-radius: 0; padding: 0; color: #fff; display: flex; flex-direction: column;"></div>
-      <div class="input-box">
-        <input type="text" placeholder="Describe your app vision..." id="inputBox">
-        <button id="sendBtn" type="button" style="pointer-events:auto;cursor:pointer;">➤</button>
-      </div>
-      <div class="app-type-buttons">
-        <button type="button">Web App</button>
-        <button type="button">Mobile App</button>
-        <button type="button">Desktop App</button>
-      </div>
-    </div>
-  </main>
-  <script type="module">
-  // Firebase imports
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-  import { getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
-
-  const firebaseConfig = {
-      apiKey: "AIzaSyBo-iuUmIVgcBYWG8ltWgugkVbfqFUf4wg",
-      authDomain: "fronti.tech", // CHANGED for cross-subdomain auth
-      databaseURL: "https://fronti-login-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "fronti-login",
-      storageBucket: "fronti-login.appspot.com",
-      messagingSenderId: "403453632821",
-      appId: "1:403453632821:web:7583bc00458748e447ac7c",
-      measurementId: "G-GH16N4RN8S"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  // Set persistence to local to help with cross-subdomain login
-  setPersistence(auth, browserLocalPersistence);
-
-  onAuthStateChanged(auth, (user) => {
-    if (!user) {
-      // Not logged in, redirect to auth page
-      window.location.href = "https://auth.fronti.tech";
-    }
-    // If logged in, do nothing (stay on page)
-  });
-  </script>
+    </main>
 </body>
 </html>
+
 
