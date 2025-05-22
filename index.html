@@ -813,6 +813,34 @@
       </div>
     </div>
   </main>
+  <script type="module">
+  // Firebase imports
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+
+  const firebaseConfig = {
+      apiKey: "AIzaSyBo-iuUmIVgcBYWG8ltWgugkVbfqFUf4wg",
+      authDomain: "fronti-login.firebaseapp.com",
+      databaseURL: "https://fronti-login-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "fronti-login",
+      storageBucket: "fronti-login.appspot.com",
+      messagingSenderId: "403453632821",
+      appId: "1:403453632821:web:7583bc00458748e447ac7c",
+      measurementId: "G-GH16N4RN8S"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+
+  onAuthStateChanged(auth, (user) => {
+    if (!user) {
+      // Not logged in, redirect to auth page
+      window.location.href = "https://auth.fronti.tech";
+    }
+    // If logged in, do nothing (stay on page)
+  });
+  </script>
 </body>
 </html>
+
 
